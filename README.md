@@ -1,2 +1,2 @@
 # Music_Recommendation
-Using Machine Learning, SQL, Dash/ Streamlit
+Using Machine Learning & Streamlit
