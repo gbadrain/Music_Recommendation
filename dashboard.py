@@ -164,12 +164,24 @@ def show_personalized_recommendations():
         available_columns.append("artist_name")
 
     # Function to get Spotify track link
+    global cache
+    if 'cache' not in globals():
+        cache = {}
+
     def get_spotify_link(track_display):
         query = track_display.replace("-", " ")
-        result = sp.search(query, type="track", limit=1)
-        if result["tracks"]["items"]:
-            return result["tracks"]["items"][0]["external_urls"]["spotify"]
-        return None
+        if track_display in cache:
+            return cache[track_display]  # Use cached result
+        try:
+            result = sp.search(query, type="track", limit=1)
+            time.sleep(2)  # Increase sleep time for better API compliance
+            if result["tracks"]["items"]:
+                link = result["tracks"]["items"][0]["external_urls"]["spotify"]
+                cache[track_display] = link  # Store in cache to avoid repeated requests
+                return link
+        except Exception as e:
+            st.warning(f"Spotify API error: {str(e)}")
+            return None
 
     # Function to generate Spotify play button as HTML
     def get_spotify_link_html(row):
@@ -200,34 +212,38 @@ def show_personalized_recommendations():
     )
 
 def show_visualization_trends():
-    st.subheader("🎨 Visualization & Trends")
+    st.subheader("Visualization & Trends")
 
-    # Check if UMAP data exists
     if "UMAP1" in df.columns and "UMAP2" in df.columns:
+        # Initialize figure BEFORE calling st.pyplot(fig)
         fig, ax = plt.subplots(figsize=(8, 6))
 
         scatter = ax.scatter(df["UMAP1"], df["UMAP2"], c=df["Cluster"], cmap="viridis", alpha=0.7)
-        legend1 = ax.legend(*scatter.legend_elements(), title="Clusters")
-        ax.add_artist(legend1)
+        ax.legend(*scatter.legend_elements(), title="Clusters")
         ax.set_xlabel("UMAP1")
         ax.set_ylabel("UMAP2")
+
+        # fig is now correctly initialized
         st.pyplot(fig)
     else:
-        st.warning("UMAP information is not available. Please check the dataset.")
+        st.warning("UMAP data not available in the dataset.")
 
-    # Add an interactive genre distribution plot
     if "genre" in df.columns:
-        st.subheader("🎶 Genre Distribution")
-        genre_counts = df["genre"].value_counts().reset_index()
+        selected_genre = st.selectbox("Filter by Genre:", df["genre"].unique())
+        genre_filtered_df = df[df["genre"] == selected_genre]
+        genre_counts = genre_filtered_df["genre"].value_counts().reset_index()
         genre_counts.columns = ["Genre", "Count"]
-        
+
+        # Initialize another figure correctly
         fig, ax = plt.subplots(figsize=(10, 4))
-        sns.barplot(data=genre_counts.head(10), x="Count", y="Genre", ax=ax, palette="coolwarm")
+        sns.barplot(data=genre_counts.head(10), x="Count", y="Genre", hue="Genre", legend=False, ax=ax, palette="coolwarm")
         ax.set_xlabel("Number of Tracks")
         ax.set_ylabel("Genre")
+
+        # fig is correctly defined before usage
         st.pyplot(fig)
     else:
-        st.warning("Genre data not found in the dataset.")
+        st.warning("Genre data not found.")
 
 
 
