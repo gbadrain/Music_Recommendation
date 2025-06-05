@@ -25,7 +25,7 @@ sp = spotipy.Spotify(
 )
 
 # ---------------------------
-# Data Loading & Preprocessing
+# Data Loading & Preprocessing in Streamlit
 # ---------------------------
 MAIN_DATA_PATH = "Resource/SpotifyFeatures.csv"
 ADDITIONAL_DATA_PATH = "Output/umap_results.csv"
