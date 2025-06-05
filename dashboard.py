@@ -1,60 +1,60 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-import sys
 import os
-import streamlit as st
-import pandas as pd
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
+import numpy as np
 
-# In[3]:
-
-print("Python executable being used:", sys.executable)
-print("Current working directory:", os.getcwd())
-print("Python sys.path:", sys.path)
-
-# ------- Spotify API Authentication -------
-CLIENT_ID = ""       # Replace with your Spotify client ID
-CLIENT_SECRET = ""   # Replace with your Spotify client secret
-REDIRECT_URI = "http://127.0.0.1:7777/callback"
-SCOPE = "user-read-private user-modify-playback-state user-read-playback-state"
-
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    redirect_uri=REDIRECT_URI,
-    scope=SCOPE
-))
-
-# ------- Streamlit Dashboard -------
-st.title("Spotify Song Recommendations Dashboard (Static Data)")
-
-# Load the recommended songs from the CSV file
-df_recs = pd.DataFrame()  # Ensure df_recs is always defined
+# ---- Handle Imports Gracefully ----
 try:
-    df_recs = pd.read_csv("Output/recommended_songs.csv")
-except Exception as e:
-    st.error("Error loading recommended_songs.csv. Make sure the file exists and re-run your notebook.")
-    st.stop()
+    import streamlit as st
+    import pandas as pd
+    import umap
+    import numpy as np
+    from sklearn.metrics.pairwise import cosine_similarity
+except ImportError as e:
+    st.error(f"Missing dependency: {e}. Try installing required packages.")
 
-if df_recs.empty:
-    st.write("No recommendations found. Please run the notebook to generate new recommendations.")
+# ---- Check and Fix NumPy Compatibility Issues ----
+if np.__version__.startswith("2"):
+    st.warning("NumPy 2.x detected, which may cause compatibility issues. Consider downgrading with: pip install numpy<2.")
+
+# ---- Load Dataset ----
+DATA_PATH = "Resource/SpotifyFeatures.csv"
+
+if os.path.exists(DATA_PATH):
+    df = pd.read_csv(DATA_PATH, encoding="utf-8")
 else:
-    st.subheader("Recommended Songs")
-    st.dataframe(df_recs)
+    st.error(f"Dataset not found at {DATA_PATH}. Ensure the path is correct.")
 
-    st.write("Play one of these songs:")
-    # For each recommended song, display a Play button
-    for idx, row in df_recs.iterrows():
-        if st.button(f"Play '{row['track_name']}' by {row['artist_name']}", key=idx):
-            # Use Spotify search to get the track URI
-            track_results = sp.search(q=row["track_name"], type="track", limit=1)
-            if track_results['tracks']['items']:
-                track_uri = track_results['tracks']['items'][0]['uri']
-                sp.start_playback(uris=[track_uri])
-            else:
-                st.error("Track not found on Spotify.")
+# ---- Dashboard Header ----
+st.title("Music Recommendation Dashboard")
+st.write("Explore song similarities and discover new tracks!")
 
-    
+# ---- Placeholder for Recommendations ----
+st.subheader("Find Similar Tracks")
+if "df" in locals():
+    try:
+        selected_track = st.selectbox("Choose a track:", df["track_name"].dropna().unique())
+        track_features = df[df["track_name"] == selected_track].select_dtypes(include=["float64", "int64"])
+        
+        if not track_features.empty:
+            similarity_scores = cosine_similarity(track_features, df.select_dtypes(include=["float64", "int64"]))
+            similar_tracks = df.iloc[np.argsort(-similarity_scores[0])[:5]]  # Top 5 recommendations
+            
+            st.write("Recommended Tracks:", similar_tracks[["track_name", "artist_name"]])
 
+            # ---- Updated Dataset Preview (Only Recommended Songs) ----
+            st.subheader("Dataset Preview: Recommended Songs Only")
+            st.write(similar_tracks)
+        else:
+            st.warning("Track features unavailable for similarity scoring.")
+    except Exception as e:
+        st.error(f"Error in generating recommendations: {e}")
+
+# ---- Debugging Logs ----
+st.subheader("System Info")
+st.write(f"NumPy Version: {np.__version__}")
+st.write(f"UMAP Version: {umap.__version__}")
+
+st.write("If there are errors, check package versions or run: `pip install -r requirements.txt`")
+
+# ---- Run App ----
+if __name__ == "__main__":
+    st.success("Dashboard is running successfully!")
