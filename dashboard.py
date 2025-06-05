@@ -1,4 +1,5 @@
 import os
+import time
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -6,18 +7,20 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
-
+import seaborn as sns
 from data_utils import load_and_preprocess_data
-
+from dotenv import load_dotenv
 # ---------------------------
-# Spotify API Setup
+# Load Environment Variables (Secure API Credentials)
 # ---------------------------
-
+load_dotenv()
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 
 sp = spotipy.Spotify(
     client_credentials_manager=SpotifyClientCredentials(
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET
+        client_id=SPOTIFY_CLIENT_ID,
+        client_secret=SPOTIFY_CLIENT_SECRET
     )
 )
 
@@ -52,8 +55,8 @@ def show_home():
         st.warning(f"Dashboard banner image not found. Please ensure the file exists at:\n{banner_path}")
 
 def show_similar_tracks():
-    st.subheader("Find Similar Tracks")
     try:
+        st.subheader("Find Similar Tracks")
         if "track_display" not in df.columns:
             raise ValueError("Column 'track_display' not found in the dataset.")
         track_options = sorted(df["track_display"].dropna().unique())
@@ -87,13 +90,28 @@ def show_similar_tracks():
         num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
         similar_tracks = similar_tracks.head(num_recs)
         
+        import time
+
+        # Define cache outside the function if not already defined
+        global cache
+        if 'cache' not in globals():
+            cache = {}
+
         def get_spotify_link(track_display):
             query = track_display.replace("-", " ")
-            result = sp.search(query, type="track", limit=1)
-            if result["tracks"]["items"]:
-                return result["tracks"]["items"][0]["external_urls"]["spotify"]
-            return None
-        
+            if track_display in cache:
+                return cache[track_display]
+            try:
+                result = sp.search(query, type="track", limit=1)
+                if result["tracks"]["items"]:
+                    link = result["tracks"]["items"][0]["external_urls"]["spotify"]
+                    cache[track_display] = link  # Store result in cache
+                    time.sleep(2)  # Increase delay to reduce API calls
+                    return link
+            except Exception as e:
+                st.warning(f"Spotify API error: {str(e)}")
+                return None
+
         def get_spotify_link_html(row):
             link = get_spotify_link(row["track_display"])
             return f'<a href="{link}" target="_blank">Listen on Spotify</a>' if link else "No Link"
@@ -118,22 +136,76 @@ def show_similar_tracks():
         st.markdown(display_df.to_html(escape=False, index=False), unsafe_allow_html=True)
         st.subheader("Dataset Preview: Recommended Tracks")
         st.write(similar_tracks)
-        
     except Exception as e:
         st.error(f"Error in generating recommendations: {e}")
 
 def show_personalized_recommendations():
     st.subheader("Personalized Recommendations")
-    st.write("This section is under development.")
 
-def show_playlist_generator():
-    st.subheader("Playlist Generator")
-    st.write("This section is under development.")
+    # Mood selection dropdown (Happy, Sad, Loving)
+    mood_options = ["Happy", "Sad", "Loving"]
+    selected_mood = st.selectbox("Select your mood:", mood_options)
+
+    # Define mood-based filtering logic
+    mood_mapping = {
+        "Happy": df[df["valence"] >= 0.7],
+        "Sad": df[df["valence"] <= 0.3],
+        "Loving": df[(df["energy"].between(0.4, 0.7)) & (df["valence"].between(0.4, 0.7))]
+    }
+
+    # Filter songs based on selected mood
+    mood_filtered_df = mood_mapping.get(selected_mood, df)
+
+    # Ensure safe column selection
+    available_columns = ["track_display"]
+    if "genre" in mood_filtered_df.columns:
+        available_columns.append("genre")
+    if "artist_name" in mood_filtered_df.columns:
+        available_columns.append("artist_name")
+
+    # Function to get Spotify track link
+    def get_spotify_link(track_display):
+        query = track_display.replace("-", " ")
+        result = sp.search(query, type="track", limit=1)
+        if result["tracks"]["items"]:
+            return result["tracks"]["items"][0]["external_urls"]["spotify"]
+        return None
+
+    # Function to generate Spotify play button as HTML
+    def get_spotify_link_html(row):
+        link = get_spotify_link(row["track_display"])
+        return f'<a href="{link}" target="_blank">Listen on Spotify</a>' if link else "No Link"
+
+    # Add play button column to mood-based recommendations
+    mood_filtered_df["Play Song 🎵"] = mood_filtered_df.apply(get_spotify_link_html, axis=1)
+
+    # Ensure varied genres appear
+    if "genre" in mood_filtered_df.columns:
+        genre_counts = mood_filtered_df["genre"].value_counts()
+        if len(mood_filtered_df) > 0 and genre_counts.max() / len(mood_filtered_df) > 0.75:
+            st.warning("Most songs belong to one genre. Try modifying mood filtering.")
+
+    # Style table to expand Genre column width
+    table_html = mood_filtered_df.to_html(escape=False, index=False)
+
+    st.markdown(
+        """
+        <style>
+            table { width: 100%; }
+            th, td { padding: 10px; text-align: left; }
+            td:nth-child(2) { min-width: 250px; } /* Expands Genre column */
+        </style>
+        """ + table_html,
+        unsafe_allow_html=True
+    )
 
 def show_visualization_trends():
-    st.subheader("Visualization & Trends")
+    st.subheader("🎨 Visualization & Trends")
+
+    # Check if UMAP data exists
     if "UMAP1" in df.columns and "UMAP2" in df.columns:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(8, 6))
+
         scatter = ax.scatter(df["UMAP1"], df["UMAP2"], c=df["Cluster"], cmap="viridis", alpha=0.7)
         legend1 = ax.legend(*scatter.legend_elements(), title="Clusters")
         ax.add_artist(legend1)
@@ -141,14 +213,27 @@ def show_visualization_trends():
         ax.set_ylabel("UMAP2")
         st.pyplot(fig)
     else:
-        st.write("UMAP information is not available.")
+        st.warning("UMAP information is not available. Please check the dataset.")
 
-def show_settings_customization():
-    st.subheader("Settings & Customization")
-    st.write("This section is under development.")
+    # Add an interactive genre distribution plot
+    if "genre" in df.columns:
+        st.subheader("🎶 Genre Distribution")
+        genre_counts = df["genre"].value_counts().reset_index()
+        genre_counts.columns = ["Genre", "Count"]
+        
+        fig, ax = plt.subplots(figsize=(10, 4))
+        sns.barplot(data=genre_counts.head(10), x="Count", y="Genre", ax=ax, palette="coolwarm")
+        ax.set_xlabel("Number of Tracks")
+        ax.set_ylabel("Genre")
+        st.pyplot(fig)
+    else:
+        st.warning("Genre data not found in the dataset.")
+
+
+
 
 st.sidebar.title("Navigation")
-tabs = ["Home", "Similar Tracks", "Personalized Recommendations", "Playlist Generator", "Visualization & Trends", "Settings & Customization"]
+tabs = ["Home", "Similar Tracks", "Personalized Recommendations", "Visualization & Trends"]
 tab = st.sidebar.radio("Select a tab:", tabs)
 
 if tab == "Home":
@@ -157,9 +242,6 @@ elif tab == "Similar Tracks":
     show_similar_tracks()
 elif tab == "Personalized Recommendations":
     show_personalized_recommendations()
-elif tab == "Playlist Generator":
-    show_playlist_generator()
 elif tab == "Visualization & Trends":
     show_visualization_trends()
-elif tab == "Settings & Customization":
-    show_settings_customization()
+
