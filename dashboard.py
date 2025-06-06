@@ -11,6 +11,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from data_utils import load_and_preprocess_data
 from dotenv import load_dotenv
+
+# --- New imports for advanced visualizations ---
+import plotly.express as px
+from sklearn.cluster import KMeans
+
 # ---------------------------
 # Load Environment Variables (Secure API Credentials)
 # ---------------------------
@@ -28,13 +33,19 @@ sp = spotipy.Spotify(
 # ---------------------------
 # Data Loading & Preprocessing in Streamlit
 # ---------------------------
+# Use st.cache_data to load data only once
+@st.cache_data
+def load_data(main_path, additional_path):
+    df, scaler = load_and_preprocess_data(main_path, additional_filepath=additional_path)
+    df = df.reset_index(drop=True)
+    numeric_cols = df.select_dtypes(include=["float64", "int64"]).columns
+    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+    return df
+
 MAIN_DATA_PATH = "Resource/SpotifyFeatures.csv"
 ADDITIONAL_DATA_PATH = "Output/umap_results.csv"
+df = load_data(MAIN_DATA_PATH, ADDITIONAL_DATA_PATH)
 
-df, scaler = load_and_preprocess_data(MAIN_DATA_PATH, additional_filepath=ADDITIONAL_DATA_PATH)
-df = df.reset_index(drop=True)
-numeric_cols = df.select_dtypes(include=["float64", "int64"]).columns
-df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
 
 # ---------------------------
 # Dashboard Tab Functions
@@ -148,180 +159,217 @@ def show_similar_tracks():
     except Exception as e:
         st.error(f"Error in generating recommendations: {e}")
 
-def show_personalized_recommendations():
-    st.subheader("Personalized Recommendations")
+# ---------------------------
+# ADVANCED VISUALIZATION FUNCTIONS
+# ---------------------------
 
-    # Mood selection dropdown (Happy, Sad, Loving)
-    mood_options = ["Happy", "Sad", "Loving"]
-    selected_mood = st.selectbox("Select your mood:", mood_options)
+def show_genre_constellation(df):
+    st.header("The Genre Constellation")
+    st.markdown("""
+    Explore your music library as a 3D universe. Each point is a song, positioned by its UMAP coordinates. 
+    Songs with similar audio features are closer together. Use your mouse to rotate, zoom, and hover over points to discover new music.
+    """)
 
-    # Define mood-based filtering logic
-    mood_mapping = {
-        "Happy": df[df["valence"] >= 0.7],
-        "Sad": df[df["valence"] <= 0.3],
-        "Loving": df[(df["energy"].between(0.4, 0.7)) & (df["valence"].between(0.4, 0.7))]
-    }
+    umap_dims = [c for c in ['UMAP1', 'UMAP2', 'UMAP3'] if c in df.columns]
+    if len(umap_dims) < 3:
+        st.error("Error: This visualization requires at least 3 UMAP dimensions (UMAP1, UMAP2, UMAP3).")
+        return
 
-    # Filter songs based on selected mood
-    mood_filtered_df = mood_mapping.get(selected_mood, df)
+    st.sidebar.subheader("Constellation Controls")
+    color_by = st.sidebar.radio("Color points by:", ["genre", "kmeans_cluster"], format_func=lambda x: "Genre" if x == "genre" else "K-Means Cluster")
+    
+    if color_by not in df.columns:
+        if color_by == 'kmeans_cluster':
+            st.warning("K-Means clusters not yet calculated. Please run clustering in the 'Sub-Genre DNA' plot first.")
+            return
+        st.error(f"Error: Column '{color_by}' not found.")
+        return
+        
+    top_n_cats = df[color_by].value_counts().nlargest(15).index
+    default_cats = top_n_cats.tolist()
+    
+    selected_cats = st.sidebar.multiselect(f"Select {color_by.replace('_', ' ')} to display:",
+                                    sorted(df[color_by].unique()),
+                                    default=default_cats)
 
-    # Ensure safe column selection
-    available_columns = ["track_display"]
-    if "genre" in mood_filtered_df.columns:
-        available_columns.append("genre")
-    if "artist_name" in mood_filtered_df.columns:
-        available_columns.append("artist_name")
+    if not selected_cats:
+        st.warning("Please select at least one category to display.")
+        return
 
-    # Function to get Spotify track link
-    global cache
-    if 'cache' not in globals():
-        cache = {}
+    filtered_df = df[df[color_by].isin(selected_cats)]
 
-    def get_spotify_link(track_display):
-        query = track_display.replace("-", " ")
-        if track_display in cache:
-            return cache[track_display]  # Use cached result
-        try:
-            result = sp.search(query, type="track", limit=1)
-            time.sleep(2)  # Increase sleep time for better API compliance
-            if result["tracks"]["items"]:
-                link = result["tracks"]["items"][0]["external_urls"]["spotify"]
-                cache[track_display] = link  # Store in cache to avoid repeated requests
-                return link
-        except Exception as e:
-            st.warning(f"Spotify API error: {str(e)}")
-            return None
-
-    # Function to generate Spotify play button as HTML
-    def get_spotify_link_html(row):
-        link = get_spotify_link(row["track_display"])
-        return f'<a href="{link}" target="_blank">Listen on Spotify</a>' if link else "No Link"
-
-    # Add play button column to mood-based recommendations
-    mood_filtered_df["Play Song 🎵"] = mood_filtered_df.apply(get_spotify_link_html, axis=1)
-
-    # Ensure varied genres appear
-    if "genre" in mood_filtered_df.columns:
-        genre_counts = mood_filtered_df["genre"].value_counts()
-        if len(mood_filtered_df) > 0 and genre_counts.max() / len(mood_filtered_df) > 0.75:
-            st.warning("Most songs belong to one genre. Try modifying mood filtering.")
-
-    # Style table to expand Genre column width
-    table_html = mood_filtered_df.to_html(escape=False, index=False)
-
-    st.markdown(
-        """
-        <style>
-            table { width: 100%; }
-            th, td { padding: 10px; text-align: left; }
-            td:nth-child(2) { min-width: 250px; } /* Expands Genre column */
-        </style>
-        """ + table_html,
-        unsafe_allow_html=True
+    fig = px.scatter_3d(
+        filtered_df, x='UMAP1', y='UMAP2', z='UMAP3', color=color_by,
+        hover_name='track_display',
+        hover_data={'genre': True, 'popularity': True, 'danceability': ':.2f', 'energy': ':.2f', 'valence': ':.2f', 'UMAP1': False, 'UMAP2': False, 'UMAP3': False},
+        color_discrete_sequence=px.colors.qualitative.Vivid, template='plotly_dark'
     )
 
+    fig.update_layout(
+        title=f'Interactive 3D Music Universe (Colored by {color_by.replace("_", " ").title()})',
+        margin=dict(l=0, r=0, b=0, t=40), legend_title_text=color_by.replace("_", " ").title(),
+        scene=dict(xaxis_title='UMAP 1', yaxis_title='UMAP 2', zaxis_title='UMAP 3')
+    )
+    fig.update_traces(marker=dict(size=3, opacity=0.8))
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+
+def show_sunburst_dna(df):
+    st.header("The Sub-Genre DNA")
+    st.markdown("""
+    This sunburst chart reveals the hidden 'DNA' of your music genres. The inner ring is the primary genre. 
+    The outer ring shows the algorithmic 'moods' (K-Means clusters) that compose each genre. 
+    Hover or click to explore the compositional breakdown.
+    """)
+
+    if 'kmeans_cluster' not in df.columns:
+        umap_dims = [c for c in df.columns if 'UMAP' in str(c)]
+        if len(umap_dims) < 2:
+            st.error("Error: UMAP dimensions are required to generate K-Means clusters.")
+            return
+        with st.spinner("Calculating K-Means clusters..."):
+            kmeans = KMeans(n_clusters=10, random_state=42, n_init=10)
+            df['kmeans_cluster'] = kmeans.fit_predict(df[umap_dims])
+
+    st.sidebar.subheader("Sunburst Controls")
+    num_genres = st.sidebar.slider("Number of Top Genres to Display:", min_value=3, max_value=20, value=10)
+    
+    top_genres = df['genre'].value_counts().nlargest(num_genres).index
+    df_filtered = df[df['genre'].isin(top_genres)]
+    
+    fig = px.sunburst(
+        df_filtered, path=['genre', 'kmeans_cluster'], values='popularity', color='genre',
+        color_discrete_sequence=px.colors.qualitative.Pastel, template='plotly_dark'
+    )
+    
+    fig.update_layout(
+        title=f'Hierarchical Breakdown of Top {num_genres} Genres into Sonic Clusters',
+        margin=dict(l=10, r=10, b=10, t=50),
+    )
+    fig.update_traces(textinfo='label+percent parent')
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+
+def show_genre_signature(df):
+    st.header("The Genre Signature")
+    st.markdown("""
+    Deconstruct and compare the audio 'signature' of different genres. Each line represents a single song, 
+    charting its path across key audio features. This reveals the unique sonic fingerprint and internal diversity of each genre.
+    """)
+
+    st.sidebar.subheader("Signature Controls")
+    all_genres = sorted(df['genre'].unique())
+    default_genres = df['genre'].value_counts().nlargest(4).index.tolist()
+    
+    selected_genres = st.sidebar.multiselect("Select genres to compare:", all_genres, default=default_genres)
+    dimensions = ['danceability', 'energy', 'valence', 'acousticness', 'instrumentalness', 'speechiness']
+    dimensions = [d for d in dimensions if d in df.columns]
+
+    if not selected_genres:
+        st.warning("Please select at least one genre.")
+        return
+        
+    df_filtered = df[df['genre'].isin(selected_genres)]
+
+    if len(df_filtered) > 2000:
+        st.sidebar.info(f"Displaying a random sample of 2000 songs out of {len(df_filtered)} for performance.")
+        df_filtered = df_filtered.sample(2000, random_state=42)
+
+    fig = px.parallel_coordinates(
+        df_filtered, dimensions=dimensions, color="valence",
+        color_continuous_scale=px.colors.sequential.Viridis,
+        labels={col: col.replace('_', ' ').title() for col in dimensions},
+        title="Comparing the Audio Signatures of Genres"
+    )
+    fig.update_layout(plot_bgcolor='black', paper_bgcolor='black', font=dict(color='white'))
+    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+
+
 def show_visualization_trends():
-    st.subheader("Visualization & Trends")
+    st.title("Advanced Data Visualizations")
+    st.markdown("---")
+    st.markdown("Use the controls in the sidebar to customize the plots.")
 
-    if "UMAP1" in df.columns and "UMAP2" in df.columns:
-        # Initialize figure BEFORE calling st.pyplot(fig)
-        fig, ax = plt.subplots(figsize=(8, 6))
+    plot_choice = st.selectbox(
+        "Select a Visualization:",
+        [
+            "The Genre Constellation (3D UMAP)",
+            "The Sub-Genre DNA (Sunburst Chart)",
+            "The Genre Signature (Parallel Coordinates)"
+        ]
+    )
 
-        scatter = ax.scatter(df["UMAP1"], df["UMAP2"], c=df["Cluster"], cmap="viridis", alpha=0.7)
-        ax.legend(*scatter.legend_elements(), title="Clusters")
-        ax.set_xlabel("UMAP1")
-        ax.set_ylabel("UMAP2")
-
-        # fig is now correctly initialized
-        st.pyplot(fig)
-    else:
-        st.warning("UMAP data not available in the dataset.")
-
-    if "genre" in df.columns:
-        selected_genre = st.selectbox("Filter by Genre:", df["genre"].unique())
-        genre_filtered_df = df[df["genre"] == selected_genre]
-        genre_counts = genre_filtered_df["genre"].value_counts().reset_index()
-        genre_counts.columns = ["Genre", "Count"]
-
-        # Initialize another figure correctly
-        fig, ax = plt.subplots(figsize=(10, 4))
-        sns.barplot(data=genre_counts.head(10), x="Count", y="Genre", hue="Genre", legend=False, ax=ax, palette="coolwarm")
-        ax.set_xlabel("Number of Tracks")
-        ax.set_ylabel("Genre")
-
-        # fig is correctly defined before usage
-        st.pyplot(fig)
-    else:
-        st.warning("Genre data not found.")
-
+    if plot_choice == "The Genre Constellation (3D UMAP)":
+        show_genre_constellation(df)
+    elif plot_choice == "The Sub-Genre DNA (Sunburst Chart)":
+        show_sunburst_dna(df)
+    elif plot_choice == "The Genre Signature (Parallel Coordinates)":
+        show_genre_signature(df)
 
 # ---------------------------
-# Streamlit App Layout
-# ---------------------------
-st.sidebar.title("Navigation")
-tabs = ["Home", "Slideshow Carousel", "Similar Tracks", "Visualization & Trends"]
-tab = st.sidebar.radio("Select a tab:", tabs)
-
-# ---------------------------
-# Function to display the slideshow carousel
+# Slideshow Function
 # ---------------------------
 def show_slideshow():
     st.subheader("I love Spotify")
     st.write("Enjoy a curated selection of slides that celebrate music!")
-    # Define the directory containing your slide images.
     image_dir = "/Users/GURU/Desktop/Music_Recommendation/Slides/"
     
-    # Compile a regex pattern to match filenames like "2.png", "3.png", ..., "12.png"
-    pattern = re.compile(r'^(\d+)\.png$', re.IGNORECASE)
-    
-    # Gather only .png files with a numeric name between 2 and 12.
-    images = []
-    for f in os.listdir(image_dir):
-        if f.lower().endswith('.png'):
-            match = pattern.match(f)
-            if match:
-                num = int(match.group(1))
-                if 2 <= num <= 12:
-                    images.append(os.path.join(image_dir, f))
-    
-    # Sort images by the numeric value from the filename.
-    images = sorted(images, key=lambda x: int(re.search(r'(\d+)', os.path.basename(x)).group(1)))
-    
-    if not images:
-        st.warning("No slides (2.png to 12.png) found in the Slides folder.")
+    if not os.path.isdir(image_dir):
+        st.error(f"Slideshow directory not found at: {image_dir}")
         return
 
-    # Initialize slide index in session state if not present.
+    pattern = re.compile(r'^(\d+)\.png$', re.IGNORECASE)
+    images = []
+    try:
+        for f in os.listdir(image_dir):
+            if f.lower().endswith('.png'):
+                match = pattern.match(f)
+                if match:
+                    num = int(match.group(1))
+                    if 2 <= num <= 12:
+                        images.append(os.path.join(image_dir, f))
+    except FileNotFoundError:
+        st.error(f"Slideshow directory not found at: {image_dir}")
+        return
+
+    if not images:
+        st.warning("No slides named 2.png through 12.png found in the Slides folder.")
+        return
+    
+    images = sorted(images, key=lambda x: int(re.search(r'(\d+)', os.path.basename(x)).group(1)))
+    
     if "slide_index" not in st.session_state:
         st.session_state.slide_index = 0
     
-    # Display the current slide using the updated container width parameter.
     st.image(
         images[st.session_state.slide_index],
         caption=f"Slide {st.session_state.slide_index + 1} of {len(images)}",
         use_container_width=True
     )
     
-    # Create two navigation buttons using columns
     col1, col2, col3 = st.columns([1, 2, 1])
-    with col1:
-        if st.button("◄ Previous", key="prev_btn"):
-            st.session_state.slide_index = (st.session_state.slide_index - 1) % len(images)
-    with col3:
-        if st.button("Next ►", key="next_btn"):
-            st.session_state.slide_index = (st.session_state.slide_index + 1) % len(images)
-
-
+    if col1.button("◄ Previous", key="prev_btn"):
+        st.session_state.slide_index = (st.session_state.slide_index - 1) % len(images)
+        st.rerun()
+    if col3.button("Next ►", key="next_btn"):
+        st.session_state.slide_index = (st.session_state.slide_index + 1) % len(images)
+        st.rerun()
 
 # ---------------------------
-# Main logic to display the selected tab content
+# Main App Layout
 # ---------------------------
-# Check which tab is selected and call the corresponding function
-if tab == "Home":
+st.sidebar.title("Navigation")
+tabs = ["Home", "Slideshow Carousel", "Similar Tracks", "Visualization & Trends"]
+# Use st.session_state to keep track of the current tab
+if 'tab' not in st.session_state:
+    st.session_state.tab = "Home"
+
+st.session_state.tab = st.sidebar.radio("Select a tab:", tabs, index=tabs.index(st.session_state.tab))
+
+# Display the selected tab content
+if st.session_state.tab == "Home":
     show_home()
-elif tab == "Slideshow Carousel":
+elif st.session_state.tab == "Slideshow Carousel":
     show_slideshow()
-elif tab == "Similar Tracks":
+elif st.session_state.tab == "Similar Tracks":
     show_similar_tracks()
-elif tab == "Visualization & Trends":
+elif st.session_state.tab == "Visualization & Trends":
     show_visualization_trends()
