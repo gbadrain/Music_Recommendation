@@ -355,7 +355,7 @@ def show_genre_signature(df):
 def show_visualization_trends():
     st.title("📊 Advanced Music Visualizations")
     st.markdown("""
-    Use these interactive plots to explore your music collection in rich detail—grouped by genre, mood, and audio profiles.
+    Use these interactive plots to explore your music collection in rich detail—grouped by genre, mood, and audio profiles. If you want feature details, refer to Tab ' For Back-end Geeks'.
     """)
 
     plot_types = {
