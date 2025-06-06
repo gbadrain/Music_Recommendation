@@ -304,31 +304,71 @@ def show_genre_constellation(df):
     )
     st.plotly_chart(fig, use_container_width=True)
 
-def show_sunburst_dna(df):
-    st.header("The Sub-Genre DNA")
+def show_feature_density_violin(df):
+    st.header("📈 Audio Feature Distribution by Genre")
+    st.markdown("Inspect how audio features vary across genres using density-based violin plots.")
+
+    features = ['danceability', 'energy', 'valence', 'acousticness', 'instrumentalness']
+    features = [f for f in features if f in df.columns]
+    
+    selected_feature = st.selectbox("Choose an audio feature:", features)
+    
+    top_genres = df['genre'].value_counts().nlargest(10).index.tolist()
+    filtered_df = df[df['genre'].isin(top_genres)]
+
+    fig = px.violin(filtered_df, y=selected_feature, x='genre', color='genre', box=True, points='all',
+                    color_discrete_sequence=px.colors.qualitative.Set3)
+    
+    fig.update_layout(height=600, xaxis_title="Genre", yaxis_title=selected_feature.capitalize())
+    st.plotly_chart(fig, use_container_width=True)
+
+
+
+def show_genre_constellation(df):
+    st.header("🌌 The Genre Constellation")
     st.markdown("""
-    Reveals the hidden 'DNA' of music genres. The inner ring is the primary genre. 
-    The outer ring shows algorithmic 'moods' (K-Means clusters).
+    Explore your music collection as a 3D constellation. Songs with similar audio features cluster together in space.
     """)
 
-    if 'kmeans_cluster' not in df.columns:
-        umap_dims = [c for c in df.columns if 'UMAP' in str(c)]
-        if len(umap_dims) < 2:
-            st.error("Error: UMAP dimensions required.")
-            return
-        with st.spinner("Calculating clusters..."):
-            kmeans = KMeans(n_clusters=10, random_state=42, n_init=10)
-            df['kmeans_cluster'] = kmeans.fit_predict(df[umap_dims])
+    # Check for UMAP columns
+    required_cols = ['UMAP1', 'UMAP2', 'UMAP3']
+    if not all(col in df.columns for col in required_cols):
+        st.error("Error: Required UMAP dimensions ('UMAP1', 'UMAP2', 'UMAP3') are missing. Please ensure UMAP preprocessing was done.")
+        return
 
-    num_genres = st.sidebar.slider("Number of Top Genres:", min_value=3, max_value=20, value=10)
-    top_genres = df['genre'].value_counts().nlargest(num_genres).index
-    df_filtered = df[df['genre'].isin(top_genres)]
-    
-    fig = px.sunburst(
-        df_filtered, path=['genre', 'kmeans_cluster'], values='popularity', color='genre',
-        color_discrete_sequence=px.colors.qualitative.Pastel
+    # Confirm 'genre' exists
+    if 'genre' not in df.columns:
+        st.error("Error: Column 'genre' is required for coloring. Please check your dataset.")
+        return
+
+    # Sidebar genre filtering
+    top_genres = df['genre'].value_counts().nlargest(15).index.tolist()
+    selected_genres = st.sidebar.multiselect("Select genres to display (max 15):", sorted(df['genre'].unique()), default=top_genres)
+
+    if not selected_genres:
+        st.warning("Please select at least one genre to visualize.")
+        return
+
+    # Filter dataset
+    filtered_df = df[df['genre'].isin(selected_genres)]
+
+    fig = px.scatter_3d(
+        filtered_df,
+        x='UMAP1', y='UMAP2', z='UMAP3',
+        color='genre',
+        hover_name='track_display',
+        hover_data={'genre': True, 'popularity': True, 'danceability': ':.2f'},
+        color_discrete_sequence=px.colors.qualitative.Vivid
     )
+
+    fig.update_layout(
+        title='🎧 3D Genre-Based Music Constellation',
+        margin=dict(l=0, r=0, b=0, t=40),
+        height=700
+    )
+
     st.plotly_chart(fig, use_container_width=True)
+
 
 def show_genre_signature(df):
     st.header("The Genre Signature")
@@ -356,23 +396,25 @@ def show_genre_signature(df):
     )
     st.plotly_chart(fig, use_container_width=True)
 
-def show_visualization_trends():
-    st.title("Advanced Visualizations")
-    plot_choice = st.selectbox(
-        "Select:",
-        [
-            "The Genre Constellation (3D UMAP)",
-            "The Sub-Genre DNA (Sunburst Chart)",
-            "The Genre Signature (Parallel Coordinates)"
-        ]
-    )
 
-    if plot_choice == "The Genre Constellation (3D UMAP)":
-        show_genre_constellation(df)
-    elif plot_choice == "The Sub-Genre DNA (Sunburst Chart)":
-        show_sunburst_dna(df)
-    elif plot_choice == "The Genre Signature (Parallel Coordinates)":
-        show_genre_signature(df)
+def show_visualization_trends():
+    st.title("📊 Advanced Music Visualizations")
+    st.markdown("""
+    Use these interactive plots to explore your music collection in rich detail—grouped by genre, mood, and audio profiles.
+    """)
+
+    plot_types = {
+        "3D UMAP Constellation 🌌": show_genre_constellation,
+        "Genre Audio Signature 🎼": show_genre_signature,
+        "Audio Feature Distribution Map 📈": show_feature_density_violin
+    }
+
+    selected_plot = st.sidebar.radio("Choose Visualization:", list(plot_types.keys()))
+
+    # Call selected function
+    plot_func = plot_types[selected_plot]
+    plot_func(df)
+
 
 
 # ---------------------------
