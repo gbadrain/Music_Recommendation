@@ -429,12 +429,107 @@ def show_slideshow():
             st.image(current_slide, width=1200, output_format="PNG")
 
 
+
+
 # ---------------------------
-# Main App
+# Backend Geeks Tab
 # ---------------------------
+
+def show_backend_geeks_tab():
+    """Displays detailed track information and finds similar tracks using cosine similarity."""
+    try:
+        st.header("For Back-end Geeks")
+        st.markdown("Detailed track information including danceability, valence, track ID, genre, artist name, and other features.")
+
+        # Ensure the dataframe is not empty
+        if df.empty:
+            st.warning("No track data available.")
+            return
+
+        # Select relevant columns
+        columns_to_display = ["track_display", "track_id", "artist_name_x", "genre", "danceability", "energy", "valence", "acousticness"]
+        if not all(col in df.columns for col in columns_to_display):
+            raise ValueError("Some required columns are missing in the dataset.")
+
+        # Allow user to select a track or artist
+        track_options = sorted(df["track_display"].dropna().unique())
+        selected_display = st.selectbox("Choose a track or an artist:", track_options)
+
+        # Filter data based on selection
+        mask = (df["track_display"].str.lower().str.strip() == selected_display.lower().strip())
+        track_features = df.loc[mask, df.select_dtypes(include=["float64", "int64"]).columns]
+
+        if track_features.empty:
+            st.warning("Track features unavailable for similarity scoring.")
+            return
+
+        # Compute similarity scores
+        similarity_scores = cosine_similarity(track_features, df.select_dtypes(include=["float64", "int64"]))
+        sorted_indices = np.argsort(-similarity_scores[0])
+        sorted_indices = sorted_indices[sorted_indices < len(df)]
+
+        similar_tracks = df.iloc[sorted_indices].copy().reset_index(drop=True)
+        similar_tracks = similar_tracks[similar_tracks["track_display"] != selected_display]
+
+        # Filter by cluster if available
+        if "Cluster" in df.columns or "cluster" in df.columns:
+            cluster_col = "Cluster" if "Cluster" in df.columns else "cluster"
+            selected_cluster = df.loc[mask, cluster_col].iloc[0]
+            similar_tracks = similar_tracks[similar_tracks[cluster_col] == selected_cluster]
+
+        # ✅ Removed similarity score slider but kept similarity-based filtering
+        similar_tracks["Similarity Score"] = np.round(similarity_scores[0][similar_tracks.index], 4)
+
+        # Slider for number of recommendations
+        num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
+        similar_tracks = similar_tracks.head(num_recs)
+
+        # Add Spotify links
+        similar_tracks["Listen on Spotify"] = similar_tracks.apply(get_spotify_link_html, axis=1)
+
+        # Ensure genre column exists
+        if "genre" not in similar_tracks.columns:
+            similar_tracks["genre"] = "N/A"
+
+        # ✅ Show all relevant columns
+        display_df = similar_tracks[columns_to_display + ["Listen on Spotify", "Similarity Score"]].copy()
+
+        # Rename columns for better readability
+        display_df.rename(
+            columns={
+                "track_display": "TRACK NAME - ARTIST NAME",
+                "track_id": "TRACK ID",
+                "artist_name_x": "ARTIST NAME",
+                "genre": "GENRE",
+                "danceability": "DANCEABILITY",
+                "energy": "ENERGY",
+                "valence": "VALENCE",
+                "acousticness": "ACOUSTICNESS",
+                "Listen on Spotify": "PLAY SONG 🎵",
+                "Similarity Score": "SIMILARITY SCORE"
+            },
+            inplace=True,
+        )
+
+        # Display recommendations
+        st.subheader("Recommended Tracks (Filtered by Similarity Score)")
+        st.dataframe(display_df, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Error in generating recommendations: {str(e)}")
+
+
+
+
+
+# ---------------------------
+# Main function to handle navigation and display content
+# ---------------------------
+
 def main():
+    """Main function to handle navigation."""
     st.sidebar.title("Navigation")
-    tabs = ["Home", "Slideshow", "Similar Tracks", "Visualizations"]
+    tabs = ["Home", "Slideshow", "Similar Tracks", "Visualizations", "For Back-end Geeks"]  # Added new tab
     
     if 'tab' not in st.session_state:
         st.session_state.tab = tabs[0]
@@ -449,6 +544,8 @@ def main():
         show_similar_tracks()
     elif st.session_state.tab == "Visualizations":
         show_visualization_trends()
+    elif st.session_state.tab == "For Back-end Geeks":  # New tab
+        show_backend_geeks_tab()
 
 if __name__ == "__main__":
     main()
