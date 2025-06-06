@@ -379,56 +379,56 @@ def show_visualization_trends():
 # Slideshow Function
 # ---------------------------
 def show_slideshow():
-    # Custom CSS for image sizing (added at the beginning)
+    # Custom CSS for full-screen images
     st.markdown("""
     <style>
-        .stImage img {
-            max-height: 80vh;
-            width: auto;
-            margin: 0 auto;
+        [data-testid="stImage"] {
+            max-height: 85vh !important;
+            width: auto !important;
+            margin: 0 auto !important;
             border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        [data-testid="stImage"] img {
+            object-fit: contain !important;
         }
     </style>
     """, unsafe_allow_html=True)
 
-    # Set up slides directory
+    # Load images
     slides_dir = "/Users/GURU/Desktop/Music_Recommendation/Slides/"
-    
-    # Get sorted list of images
-    slides = sorted(
-        [f for f in os.listdir(slides_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))],
-        key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else 0
-    )
-    
-    # Initialize slide index
+    try:
+        slides = sorted(
+            [f for f in os.listdir(slides_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))],
+            key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else 0
+        )
+    except Exception:
+        st.error("Image loading failed. Check:")
+        st.write("1. Folder exists at:", slides_dir)
+        st.write("2. Images are named like: 1.jpg, 2.jpg, etc.")
+        return
+
+    # Initialize session state
     if 'slide_index' not in st.session_state:
         st.session_state.slide_index = 0
 
-    # Navigation functions
-    def prev_slide():
-        if st.session_state.slide_index > 0:
-            st.session_state.slide_index -= 1
-
-    def next_slide():
-        if st.session_state.slide_index < len(slides) - 1:
-            st.session_state.slide_index += 1
-
-    # Display controls
-    col1, col2, col3 = st.columns([1, 8, 1])
-    
+    # Navigation buttons
+    col1, col2, col3 = st.columns([1, 6, 1])
     with col1:
-        st.button("◄", on_click=prev_slide, disabled=(st.session_state.slide_index == 0))
+        st.button("◄", on_click=lambda: st.session_state.update(slide_index=max(0, st.session_state.slide_index-1)), 
+                  disabled=(st.session_state.slide_index == 0))
     
     with col3:
-        st.button("►", on_click=next_slide, disabled=(st.session_state.slide_index == len(slides) - 1))
+        st.button("►", on_click=lambda: st.session_state.update(slide_index=min(len(slides)-1, st.session_state.slide_index+1)),
+                  disabled=(st.session_state.slide_index == len(slides)-1))
 
-    # Display current slide with custom sizing
+    # Display image (modern Streamlit approach)
     with col2:
-        current_slide = os.path.join(slides_dir, slides[st.session_state.slide_index])
+        if slides:
+            current_slide = os.path.join(slides_dir, slides[st.session_state.slide_index])
         st.image(
             current_slide,
-            use_container_width=True,
+            use_container_width=True,  # Correct modern parameter
             output_format="PNG"
         )
 
