@@ -258,9 +258,9 @@ def show_similar_tracks():
 # ---------------------------
 # Visualization Functions
 # ---------------------------
-
+# Function to show audio feature distribution using violin plots
 def show_feature_density_violin(df):
-    st.header("📈 Audio Feature Distribution by Genre")
+    st.header("Audio Feature Distribution by Genre")
     st.markdown("Inspect how audio features vary across genres using density-based violin plots.")
 
     features = ['danceability', 'energy', 'valence', 'acousticness', 'instrumentalness']
@@ -277,10 +277,11 @@ def show_feature_density_violin(df):
     fig.update_layout(height=600, xaxis_title="Genre", yaxis_title=selected_feature.capitalize())
     st.plotly_chart(fig, use_container_width=True)
 
-
-
+# ---------------------------
+# Genre Constellation Visualization
+# ---------------------------
 def show_genre_constellation(df):
-    st.header("🌌 The Genre Constellation")
+    st.header("The Genre Constellation")
     st.markdown("""
     Explore your music collection as a 3D constellation. Songs with similar audio features cluster together in space.
     """)
@@ -317,13 +318,16 @@ def show_genre_constellation(df):
     )
 
     fig.update_layout(
-        title='🎧 3D Genre-Based Music Constellation',
+        title='3D Genre-Based Music Constellation',
         margin=dict(l=0, r=0, b=0, t=40),
         height=700
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
+# ---------------------------
+# Genre Signature Visualization
+# ---------------------------
 
 def show_genre_signature(df):
     st.header("The Genre Signature")
@@ -331,37 +335,66 @@ def show_genre_signature(df):
     Deconstruct and compare the audio 'signature' of different genres. 
     """)
 
+    #  Sidebar for genre selection
     all_genres = sorted(df['genre'].unique())
-    selected_genres = st.sidebar.multiselect("Select genres:", all_genres, 
-                                           default=all_genres[:4])
-    dimensions = ['danceability', 'energy', 'valence', 'acousticness']
-    dimensions = [d for d in dimensions if d in df.columns]
+    selected_genres = st.sidebar.multiselect("Select genres:", all_genres, default=all_genres[:4])
 
-    if not selected_genres:
-        st.warning("Please select genres.")
+    # Feature selection dropdown
+    all_features = ['danceability', 'energy', 'valence', 'acousticness', 'instrumentalness', 'speechiness']
+    available_features = [f for f in all_features if f in df.columns]
+    selected_features = st.sidebar.multiselect("Select features:", available_features, default=available_features[:4])
+
+    #  Dynamic color scaling selection
+    color_options = available_features
+    selected_color = st.sidebar.selectbox("Select color scale:", color_options, index=color_options.index("valence") if "valence" in color_options else 0)
+
+    if not selected_genres or not selected_features:
+        st.warning("Please select at least one genre and one feature.")
         return
-        
+
+    # Filter dataset based on selected genres
     df_filtered = df[df['genre'].isin(selected_genres)]
     if len(df_filtered) > 2000:
         df_filtered = df_filtered.sample(2000, random_state=42)
 
+    #  Automatically select top songs based on color scale feature
+    top_songs = df_filtered.sort_values(by=selected_color, ascending=False).head(5)
+
+    #  Create interactive parallel coordinates plot
     fig = px.parallel_coordinates(
-        df_filtered, dimensions=dimensions, color="valence",
-        color_continuous_scale=px.colors.sequential.Viridis
+        df_filtered, dimensions=selected_features, color=selected_color,
+        color_continuous_scale=px.colors.sequential.Viridis,
+        labels={feature: feature.capitalize() for feature in selected_features},
+        title="Audio Feature Comparison Across Selected Genres"
     )
+
+    # Display plot
     st.plotly_chart(fig, use_container_width=True)
 
+    # Display selected songs dynamically
+    st.subheader("Top Songs Based on Selected Criteria")
+    for _, row in top_songs.iterrows():
+        st.markdown(f"🎵 **{row['track_display']}** - {row['artist_name_x']} ({row['genre']})")
+        st.markdown(f"🔹 **{selected_color.capitalize()}:** {row[selected_color]:.2f}")
+        st.markdown(f"[Listen on Spotify](https://open.spotify.com/track/{row['track_id']}) 🎧")
+        st.write("---")
+
+
+
+# ---------------------------
+# Visualization Trends Tab
+# ---------------------------
 
 def show_visualization_trends():
-    st.title("📊 Advanced Music Visualizations")
+    st.title("Advanced Music Visualizations")
     st.markdown("""
-    Use these interactive plots to explore your music collection in rich detail—grouped by genre, mood, and audio profiles. If you want feature details, refer to Tab ' For Back-end Geeks'.
+    Use these interactive plots to explore your music collection in rich detail—grouped by genre, mood, and audio profiles. If you want feature, refer to Tab ' For Back-end Geeks'.
     """)
 
     plot_types = {
-        "3D UMAP Constellation 🌌": show_genre_constellation,
-        "Genre Audio Signature 🎼": show_genre_signature,
-        "Audio Feature Distribution Map 📈": show_feature_density_violin
+        "3D UMAP Constellation ": show_genre_constellation,
+        "Genre Audio Signature ": show_genre_signature,
+        "Audio Feature Distribution Map ": show_feature_density_violin
     }
 
     selected_plot = st.sidebar.radio("Choose Visualization:", list(plot_types.keys()))
