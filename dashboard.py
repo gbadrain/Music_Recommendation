@@ -374,34 +374,63 @@ def show_visualization_trends():
     elif plot_choice == "The Genre Signature (Parallel Coordinates)":
         show_genre_signature(df)
 
+
+# ---------------------------
+# Slideshow Function
+# ---------------------------
 def show_slideshow():
-    st.subheader("Music Slideshow")
-    if not os.path.exists(SLIDES_DIR):
-        st.error(f"Slides directory not found: {SLIDES_DIR}")
-        return
+    # Custom CSS for image sizing (added at the beginning)
+    st.markdown("""
+    <style>
+        .stImage img {
+            max-height: 80vh;
+            width: auto;
+            margin: 0 auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
-    images = []
-    for f in sorted(os.listdir(SLIDES_DIR)):
-        if f.lower().endswith(('.png', '.jpg', '.jpeg')):
-            images.append(os.path.join(SLIDES_DIR, f))
-
-    if not images:
-        st.warning("No images found in slides directory.")
-        return
+    # Set up slides directory
+    slides_dir = "/Users/GURU/Desktop/Music_Recommendation/Slides/"
     
-    if "slide_index" not in st.session_state:
-        st.session_state.slide_index = 0
-    
-    st.image(
-        images[st.session_state.slide_index],
-        use_container_width=True
+    # Get sorted list of images
+    slides = sorted(
+        [f for f in os.listdir(slides_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))],
+        key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else 0
     )
     
-    col1, col2, col3 = st.columns([1, 2, 1])
-    if col1.button("◄ Previous"):
-        st.session_state.slide_index = max(0, st.session_state.slide_index - 1)
-    if col3.button("Next ►"):
-        st.session_state.slide_index = min(len(images)-1, st.session_state.slide_index + 1)
+    # Initialize slide index
+    if 'slide_index' not in st.session_state:
+        st.session_state.slide_index = 0
+
+    # Navigation functions
+    def prev_slide():
+        if st.session_state.slide_index > 0:
+            st.session_state.slide_index -= 1
+
+    def next_slide():
+        if st.session_state.slide_index < len(slides) - 1:
+            st.session_state.slide_index += 1
+
+    # Display controls
+    col1, col2, col3 = st.columns([1, 8, 1])
+    
+    with col1:
+        st.button("◄", on_click=prev_slide, disabled=(st.session_state.slide_index == 0))
+    
+    with col3:
+        st.button("►", on_click=next_slide, disabled=(st.session_state.slide_index == len(slides) - 1))
+
+    # Display current slide with custom sizing
+    with col2:
+        current_slide = os.path.join(slides_dir, slides[st.session_state.slide_index])
+        st.image(
+            current_slide,
+            use_container_width=True,
+            output_format="PNG"
+        )
 
 # ---------------------------
 # Main App
