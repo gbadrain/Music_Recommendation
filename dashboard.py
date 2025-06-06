@@ -147,7 +147,7 @@ def show_home():
             try:
                 st.image(banner_path, 
                         use_container_width=True,
-                        caption="Discover Your Next Favorite Song")
+                        caption="Discover Music with Gurpreet Singh Badrain",)
             except Exception as e:
                 st.warning(f"Error loading banner: {str(e)}")
                 show_placeholder_banner()
@@ -185,7 +185,7 @@ def show_home():
         <div class="feature-card">
             <div class="feature-title">🎨 Audio Features</div>
             <div style="color: #B3B3B3;">
-                Explore how danceability, energy, and valence define your music taste.
+                Explore how danceability, energy, valence and acousticness define your music taste.
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -258,51 +258,6 @@ def show_similar_tracks():
 # ---------------------------
 # Visualization Functions
 # ---------------------------
-def show_genre_constellation(df):
-    st.header("The Genre Constellation")
-    st.markdown("""
-    Explore your music library as a 3D universe. Each point is a song, positioned by its UMAP coordinates. 
-    Songs with similar audio features are closer together.
-    """)
-
-    umap_dims = [c for c in ['UMAP1', 'UMAP2', 'UMAP3'] if c in df.columns]
-    if len(umap_dims) < 3:
-        st.error("Error: Requires 3 UMAP dimensions (UMAP1, UMAP2, UMAP3).")
-        return
-
-    color_by = st.sidebar.radio("Color points by:", ["genre", "kmeans_cluster"], 
-                              format_func=lambda x: "Genre" if x == "genre" else "K-Means Cluster")
-    
-    if color_by not in df.columns:
-        if color_by == 'kmeans_cluster':
-            st.warning("Run clustering in 'Sub-Genre DNA' first.")
-            return
-        st.error(f"Column '{color_by}' not found.")
-        return
-        
-    top_n_cats = df[color_by].value_counts().nlargest(15).index
-    selected_cats = st.sidebar.multiselect(f"Select {color_by.replace('_', ' ')} to display:",
-                                    sorted(df[color_by].unique()),
-                                    default=top_n_cats.tolist())
-
-    if not selected_cats:
-        st.warning("Please select at least one category.")
-        return
-
-    filtered_df = df[df[color_by].isin(selected_cats)]
-
-    fig = px.scatter_3d(
-        filtered_df, x='UMAP1', y='UMAP2', z='UMAP3', color=color_by,
-        hover_name='track_display',
-        hover_data={'genre': True, 'popularity': True, 'danceability': ':.2f'},
-        color_discrete_sequence=px.colors.qualitative.Vivid
-    )
-
-    fig.update_layout(
-        title=f'3D Music Universe (Colored by {color_by.replace("_", " ").title()})',
-        margin=dict(l=0, r=0, b=0, t=40)
-    )
-    st.plotly_chart(fig, use_container_width=True)
 
 def show_feature_density_violin(df):
     st.header("📈 Audio Feature Distribution by Genre")
@@ -425,17 +380,20 @@ def show_slideshow():
     st.markdown("""
     <style>
         [data-testid="stImage"] {
-            max-height: 85vh !important;
-            width: auto !important;
-            margin: 0 auto !important;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            height: 100vh !important; /* Full viewport height */
+            width: 100vw !important; /* Full viewport width */
         }
+        
         [data-testid="stImage"] img {
-            object-fit: contain !important;
+            max-width: 100vw !important; /* Ensure it fills width */
+            max-height: 100vh !important; /* Ensure it fills height */
+            object-fit: contain !important; /* Maintain aspect ratio */
         }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
     # Load images
     slides_dir = "/Users/GURU/Desktop/Music_Recommendation/Slides/"
@@ -468,11 +426,8 @@ def show_slideshow():
     with col2:
         if slides:
             current_slide = os.path.join(slides_dir, slides[st.session_state.slide_index])
-        st.image(
-            current_slide,
-            use_container_width=True,  # Correct modern parameter
-            output_format="PNG"
-        )
+            st.image(current_slide, width=1200, output_format="PNG")
+
 
 # ---------------------------
 # Main App
