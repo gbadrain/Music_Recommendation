@@ -1,5 +1,6 @@
 import os
 import time
+import re
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -54,6 +55,40 @@ def show_home():
     else:
         st.warning(f"Dashboard banner image not found. Please ensure the file exists at:\n{banner_path}")
 
+# Define cache and helper functions at the top level
+global cache
+if 'cache' not in globals():
+    cache = {}
+
+def get_spotify_link(track_display):
+    query = track_display.replace("-", " ")
+    if track_display in cache:
+        return cache[track_display]
+    
+    max_attempts = 3
+    attempt = 1
+    delay = 2  # start with a 2-second delay
+    
+    while attempt <= max_attempts:
+        try:
+            result = sp.search(query, type="track", limit=1)
+            time.sleep(delay)
+            if result["tracks"]["items"]:
+                link = result["tracks"]["items"][0]["external_urls"]["spotify"]
+                cache[track_display] = link  # store in cache for efficiency
+                return link
+            else:
+                return None
+        except Exception as e:
+            st.warning(f"Spotify API error (attempt {attempt}): {str(e)}")
+            attempt += 1
+            delay *= 2  # increase the delay exponentially
+    return None
+
+def get_spotify_link_html(row):
+    link = get_spotify_link(row["track_display"])
+    return f'<a href="{link}" target="_blank">Listen on Spotify</a>' if link else "No Link"
+
 def show_similar_tracks():
     try:
         st.subheader("Find Similar Tracks")
@@ -89,32 +124,6 @@ def show_similar_tracks():
         
         num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
         similar_tracks = similar_tracks.head(num_recs)
-        
-        import time
-
-        # Define cache outside the function if not already defined
-        global cache
-        if 'cache' not in globals():
-            cache = {}
-
-        def get_spotify_link(track_display):
-            query = track_display.replace("-", " ")
-            if track_display in cache:
-                return cache[track_display]
-            try:
-                result = sp.search(query, type="track", limit=1)
-                if result["tracks"]["items"]:
-                    link = result["tracks"]["items"][0]["external_urls"]["spotify"]
-                    cache[track_display] = link  # Store result in cache
-                    time.sleep(2)  # Increase delay to reduce API calls
-                    return link
-            except Exception as e:
-                st.warning(f"Spotify API error: {str(e)}")
-                return None
-
-        def get_spotify_link_html(row):
-            link = get_spotify_link(row["track_display"])
-            return f'<a href="{link}" target="_blank">Listen on Spotify</a>' if link else "No Link"
         
         similar_tracks["Listen on Spotify"] = similar_tracks.apply(get_spotify_link_html, axis=1)
         
@@ -246,18 +255,73 @@ def show_visualization_trends():
         st.warning("Genre data not found.")
 
 
-
-
+# ---------------------------
+# Streamlit App Layout
+# ---------------------------
 st.sidebar.title("Navigation")
-tabs = ["Home", "Similar Tracks", "Personalized Recommendations", "Visualization & Trends"]
+tabs = ["Home", "Slideshow Carousel", "Similar Tracks", "Visualization & Trends"]
 tab = st.sidebar.radio("Select a tab:", tabs)
 
+# ---------------------------
+# Function to display the slideshow carousel
+# ---------------------------
+def show_slideshow():
+    st.subheader("I love Spotify")
+    st.write("Enjoy a curated selection of slides that celebrate music!")
+    # Define the directory containing your slide images.
+    image_dir = "/Users/GURU/Desktop/Music_Recommendation/Slides/"
+    
+    # Compile a regex pattern to match filenames like "2.png", "3.png", ..., "12.png"
+    pattern = re.compile(r'^(\d+)\.png$', re.IGNORECASE)
+    
+    # Gather only .png files with a numeric name between 2 and 12.
+    images = []
+    for f in os.listdir(image_dir):
+        if f.lower().endswith('.png'):
+            match = pattern.match(f)
+            if match:
+                num = int(match.group(1))
+                if 2 <= num <= 12:
+                    images.append(os.path.join(image_dir, f))
+    
+    # Sort images by the numeric value from the filename.
+    images = sorted(images, key=lambda x: int(re.search(r'(\d+)', os.path.basename(x)).group(1)))
+    
+    if not images:
+        st.warning("No slides (2.png to 12.png) found in the Slides folder.")
+        return
+
+    # Initialize slide index in session state if not present.
+    if "slide_index" not in st.session_state:
+        st.session_state.slide_index = 0
+    
+    # Display the current slide using the updated container width parameter.
+    st.image(
+        images[st.session_state.slide_index],
+        caption=f"Slide {st.session_state.slide_index + 1} of {len(images)}",
+        use_container_width=True
+    )
+    
+    # Create two navigation buttons using columns
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col1:
+        if st.button("◄ Previous", key="prev_btn"):
+            st.session_state.slide_index = (st.session_state.slide_index - 1) % len(images)
+    with col3:
+        if st.button("Next ►", key="next_btn"):
+            st.session_state.slide_index = (st.session_state.slide_index + 1) % len(images)
+
+
+
+# ---------------------------
+# Main logic to display the selected tab content
+# ---------------------------
+# Check which tab is selected and call the corresponding function
 if tab == "Home":
     show_home()
+elif tab == "Slideshow Carousel":
+    show_slideshow()
 elif tab == "Similar Tracks":
     show_similar_tracks()
-elif tab == "Personalized Recommendations":
-    show_personalized_recommendations()
 elif tab == "Visualization & Trends":
     show_visualization_trends()
-
