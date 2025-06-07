@@ -45,7 +45,7 @@ Includes various interactive plots such as:
 
 ## **Technical Overview**  
 
-[Backend Analysis](https://github.com/gbadrain/Music_Recommendation/blob/main/backend_analysis.md)
+Please Click here for [Backend Analysis](https://github.com/gbadrain/Music_Recommendation/blob/main/backend_analysis.md)
 
 
 
@@ -66,8 +66,6 @@ Interactive controls include:
 - A **recommendation slider** to adjust the number of suggested tracks  
 - **Spotify links** for direct listening  
 - A **data table display** presenting recommendations with key attributes and similarity scores  
-
-
 
 
 
@@ -223,19 +221,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-### Development Guidelines
-
-- Follow PEP 8 style guidelines
-- Add docstrings to functions
-- Include unit tests for new features
-- Update documentation as needed
-
-## Known Issues & Troubleshooting
-
-- **UMAP similarity scores showing 1.0**: Under review for improved granularity
-- **Fuzzy matching**: May affect recommendation accuracy in some cases
-- **Memory usage**: Large datasets may require optimization
-
 ## Technical Documentation
 
 ### Architecture Overview
@@ -257,6 +242,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - **GitHub**: [gbadrain](https://github.com/gbadrain)
 - **LinkedIn**: [gurpreet-badrain](http://linkedin.com/in/gurpreet-badrain-b258a0219)
 - **Email**: gbadrain@gmail.com
+- **Streamlit**: [Streamlit App](https://gbadrain-machine-learning.streamlit.app)
+
 
 ---
 ## **Support from Copilot AI**  
