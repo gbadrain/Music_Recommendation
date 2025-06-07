@@ -8,15 +8,65 @@ A Streamlit-powered interactive dashboard for music discovery, genre exploration
 
 <img width="1106" alt="Screenshot 2025-06-05 at 6 45 01 PM" src="https://github.com/user-attachments/assets/ad277c4c-764d-438a-9ea9-17465c5971dc" />
 
-## Project Overview
+## **Dashboard Navigation**  
 
-This project leverages machine learning and Spotify's audio analysis to create an intelligent music recommendation system that:
+The dashboard consists of five interactive tabs:  
 
-- **Find Similar Tracks** - Discover music based on audio feature similarity
-- **Explore Genre Trends** - Visualize music patterns across different genres  
-- **Music Clustering** - Interactive UMAP visualizations of music landscapes
-- **Dynamic Playlists** - Generate personalized recommendations with Spotify links
-- **Audio Analysis** - Deep dive into track characteristics and features
+### **Home**  
+**Overview of the Project**  
+Provides an overview of the project, highlighting key features and functionalities. Users can explore how the recommendation system works and navigate to different sections.  
+
+### **Slideshow**  
+**Music-Related Visuals**  
+Displays a collection of music-related visuals, including album covers, genre trends, and interactive images that enhance the user experience.  
+
+### **Similar Tracks**  
+**Find Songs Similar to Your Favorites**  
+Allows users to find songs similar to their favorites using **UMAP embeddings** and **cosine similarity**. The system generates recommendations based on audio feature similarity and provides direct **Spotify links** for listening.  
+![Screenshot 2025-06-07 at 12 43 47 AM](https://github.com/user-attachments/assets/d11b3606-86e0-4ae0-bc1e-43b47476a906)
+<img width="1250" alt="Screenshot 2025-06-05 at 6 44 23 PM" src="https://github.com/user-attachments/assets/1c334f7d-ffd9-4fd6-bb49-168cc18c70ad" />
+
+
+### **Visualizations**  
+**Interactive Music Data Analysis**  
+Includes various interactive plots such as:  
+
+- **3D UMAP Clustering** – Genre-based music landscapes
+![Screenshot 2025-06-06 at 1 30 52 PM](https://github.com/user-attachments/assets/e272df4f-411a-4d16-ac9d-c9db48960abb)
+
+- **Parallel Coordinates** – Multi-dimensional feature comparison
+![Screenshot 2025-06-06 at 3 39 06 PM](https://github.com/user-attachments/assets/b7aa57a2-64ba-4f68-a15d-1ab16ff9ee83)
+
+- **Violin Plots** – Audio feature distribution analysis
+![Screenshot 2025-06-06 at 1 41 13 PM](https://github.com/user-attachments/assets/c8412b9e-64be-42c3-b5ac-a20e56c4e475)
+
+## **For Back-End Geeks**  
+
+### **Technical Overview**  
+This section provides a **technical overview** of the recommendation system, focusing on **track metadata, similarity scoring, and clustering techniques**.  
+
+### **Detailed Track Information**  
+Users can explore key attributes such as:  
+- **Track Name & Artist** – Identifies the song and performer.  
+- **Genre** – Categorizes the song based on musical style.  
+- **Danceability, Energy, Valence, Acousticness** – Audio features that define a song's mood and characteristics.  
+
+### **Similarity-Based Recommendations**  
+Using **cosine similarity**, the system finds tracks that closely match a selected song based on numerical audio features.  
+- **Track Selection** – Users can choose a song from the dataset.  
+- **Feature Matching** – The system compares the selected track's attributes with all available songs.  
+- **Ranking & Filtering** – Tracks are sorted based on similarity scores to ensure the most relevant recommendations.  
+
+### **Cluster-Based Filtering**  
+If clustering labels are available, recommendations can be refined further:  
+- **Cluster Identification** – Determines the selected track's cluster.  
+- **Filtered Recommendations** – Suggests songs within the same cluster for enhanced accuracy.  
+
+### **Interactive Controls & Spotify Integration**  
+- **Recommendation Slider** – Users can adjust the number of recommended tracks.  
+- **Spotify Links** – Direct access to listen to recommended songs.  
+- **Data Table Display** – Presents recommendations with key attributes and similarity scores.  
+
 
 ### Technologies Used
 
@@ -55,36 +105,6 @@ Music_Recommendation/
    ```
 
 2. **Open your browser** and navigate to `http://localhost:8501`
-
-## Dashboard Features
-
-### Home Tab
-- Welcome interface with project overview
-- Music discovery insights and statistics
-- Quick navigation to key features
-
-### Slideshow Tab
-- Full-screen image gallery
-- Music-related visual content
-- Interactive slideshow controls
-
-### Similar Tracks Tab
-- **Smart Search**: Find songs similar to your favorites
-- **UMAP-Powered**: Uses advanced dimensionality reduction
-- **Similarity Scoring**: Cosine similarity for accurate recommendations
-- **Direct Links**: Spotify integration for instant listening
-
-### Visualizations Tab
-- **Violin Plots**: Audio feature distribution analysis
-- **3D UMAP Clustering**: Interactive genre-based music landscapes
-- **Parallel Coordinates**: Multi-dimensional feature comparison
-- **Genre Analytics**: Deep dive into musical characteristics
-
-### Backend Insights Tab
-- Detailed track metadata and audio features
-- Advanced similarity scoring metrics
-- Technical implementation details
-- Model performance analytics
 
 ## Model Performance
 
@@ -183,10 +203,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - **UMAP**: Uniform Manifold Approximation and Projection for dimensionality reduction
 - **Cosine Similarity**: Vector similarity computation for recommendations
 - **Random Forest**: Classification for genre prediction
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Contact & Support
 
