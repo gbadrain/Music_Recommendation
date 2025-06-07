@@ -1,4 +1,4 @@
-# Backend Analysis of the Music Recommendation System
+# Backend Analysis of the 'Music Recommendation System'
 
 ## Overview
 
@@ -25,11 +25,17 @@ The system uses StandardScaler to normalize numerical features such as:
 Scaling ensures that all features are on a uniform scale, preventing bias in similarity computations.
 
 ### Feature Selection
+<img width="1172" alt="Screenshot 2025-06-06 at 1 02 31 PM" src="https://github.com/user-attachments/assets/45223010-ecce-4fe2-a47d-76627caa3d79" />
+
 
 The system selects important features for clustering and recommendation:
 - **Audio Features**: Danceability, Energy, Tempo, Acousticness, Instrumentalness, Valence, Loudness, Speechiness.
 - **Computed Features**: Song Length, Key.
 - **Categorical Encoding**: Artist and Genre labels are converted into numerical values using LabelEncoder.
+  
+### Classification Report For Random Forest model
+<img width="488" alt="Screenshot 2025-06-06 at 1 03 32 PM" src="https://github.com/user-attachments/assets/e620d91b-3531-4261-8480-cceaa1dfebab" />
+
 
 ## 2. Dimensionality Reduction Using PCA & UMAP
 
@@ -39,6 +45,7 @@ To reduce the high-dimensional feature space, the system applies PCA (Principal 
 - Extracts 7 principal components (PC1-PC7) while retaining most of the variance.
 - Improves computational efficiency by reducing redundant information.
 - Facilitates clustering and visualization of song relationships.
+<img width="1504" alt="Screenshot 2025-06-06 at 1 05 14 PM" src="https://github.com/user-attachments/assets/d68c49e0-dfd2-48d8-a2f7-10336fbafc6e" />
 
 The explained variance ratio ensures that PCA retains sufficient information for accurate recommendations.
 
@@ -95,6 +102,7 @@ UMAP embeddings provide an alternative similarity measure:
 - Finds nearest neighbors in UMAP space.
 - Sorts similarity scores to retrieve top matches.
 - Allows hybrid recommendations combining UMAP and cosine similarity.
+<img width="1542" alt="Screenshot 2025-06-06 at 1 05 33 PM" src="https://github.com/user-attachments/assets/eb3a4604-7439-4d2d-ad18-f22db7cd356b" />
 
 ## 5. Data Storage & Export
 
