@@ -96,6 +96,8 @@ def get_spotify_link_html(row):
 # ---------------------------
 # Dashboard Tab Functions
 # ---------------------------
+
+
 def show_home():
     # Custom CSS for styling
     st.markdown("""
@@ -137,7 +139,7 @@ def show_home():
                 unsafe_allow_html=True)
 
     # Banner Section with Error Handling
-    banner_path = "/Users/GURU/Desktop/Music_Recommendation/Images/birds-7717268_640.png"
+    banner_path = os.path.join(IMAGE_DIR, "birds-7717268_640.png")
     banner_container = st.container()
     
     with banner_container:
