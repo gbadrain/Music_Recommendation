@@ -7,3 +7,4 @@ scipy
 matplotlib
 seaborn
 scikit-image
+umap-learn
