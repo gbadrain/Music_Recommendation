@@ -1,4 +1,4 @@
-# 🎵 Music Recommendation Dashboard
+# Music Recommendation Dashboard
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-app-url.streamlit.app)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
@@ -8,17 +8,17 @@ A Streamlit-powered interactive dashboard for music discovery, genre exploration
 
 ![Dashboard Preview](Images/banner.png) <!-- Add your dashboard screenshot here -->
 
-## 📌 Project Overview
+## Project Overview
 
 This project leverages machine learning and Spotify's audio analysis to create an intelligent music recommendation system that:
 
-- 🎯 **Find Similar Tracks** - Discover music based on audio feature similarity
-- 📊 **Explore Genre Trends** - Visualize music patterns across different genres  
-- 🗺️ **Music Clustering** - Interactive UMAP visualizations of music landscapes
-- 🎵 **Dynamic Playlists** - Generate personalized recommendations with Spotify links
-- 📈 **Audio Analysis** - Deep dive into track characteristics and features
+- **Find Similar Tracks** - Discover music based on audio feature similarity
+- **Explore Genre Trends** - Visualize music patterns across different genres  
+- **Music Clustering** - Interactive UMAP visualizations of music landscapes
+- **Dynamic Playlists** - Generate personalized recommendations with Spotify links
+- **Audio Analysis** - Deep dive into track characteristics and features
 
-### 🛠️ Technologies Used
+### Technologies Used
 
 - **Frontend**: Streamlit
 - **Machine Learning**: UMAP, Scikit-Learn
@@ -26,7 +26,7 @@ This project leverages machine learning and Spotify's audio analysis to create a
 - **Visualization**: Plotly, Matplotlib, Seaborn
 - **API Integration**: Spotipy (Spotify Web API)
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 Music_Recommendation/
@@ -48,7 +48,7 @@ Music_Recommendation/
 └── LICENSE                            # Project license
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -81,37 +81,37 @@ Music_Recommendation/
 
 5. **Open your browser** and navigate to `http://localhost:8501`
 
-## 🖥️ Dashboard Features
+## Dashboard Features
 
-### 🏠 Home Tab
+### Home Tab
 - Welcome interface with project overview
 - Music discovery insights and statistics
 - Quick navigation to key features
 
-### 🖼️ Slideshow Tab
+### Slideshow Tab
 - Full-screen image gallery
 - Music-related visual content
 - Interactive slideshow controls
 
-### 🎵 Similar Tracks Tab
+### Similar Tracks Tab
 - **Smart Search**: Find songs similar to your favorites
 - **UMAP-Powered**: Uses advanced dimensionality reduction
 - **Similarity Scoring**: Cosine similarity for accurate recommendations
 - **Direct Links**: Spotify integration for instant listening
 
-### 📊 Visualizations Tab
+### Visualizations Tab
 - **Violin Plots**: Audio feature distribution analysis
 - **3D UMAP Clustering**: Interactive genre-based music landscapes
 - **Parallel Coordinates**: Multi-dimensional feature comparison
 - **Genre Analytics**: Deep dive into musical characteristics
 
-### 🔧 Backend Insights Tab
+### Backend Insights Tab
 - Detailed track metadata and audio features
 - Advanced similarity scoring metrics
 - Technical implementation details
 - Model performance analytics
 
-## 📈 Model Performance
+## Model Performance
 
 | Model Architecture | Accuracy | Precision | Recall | Computational Cost |
 |-------------------|----------|-----------|--------|-------------------|
@@ -119,7 +119,7 @@ Music_Recommendation/
 | UMAP Clustering | ~75.6% | ~72% | ~88% | Medium |
 | RF + UMAP | ~75.8% | ~71.6% | ~90.5% | High |
 
-## 🚀 Deployment
+## Deployment
 
 ### Deploy on Streamlit Cloud
 
@@ -143,7 +143,7 @@ Music_Recommendation/
 - **Docker**: Containerized deployment with provided Dockerfile
 - **Local Server**: Run on local network for team access
 
-## 📦 Dependencies
+## Dependencies
 
 ```txt
 streamlit>=1.28.0
@@ -157,7 +157,7 @@ matplotlib>=3.7.0
 seaborn>=0.12.0
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Spotify API Setup (Optional)
 For enhanced features, set up Spotify API credentials:
@@ -171,7 +171,7 @@ For enhanced features, set up Spotify API credentials:
    client_secret = "your_client_secret"
    ```
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
@@ -190,13 +190,13 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - Include unit tests for new features
 - Update documentation as needed
 
-## 🐛 Known Issues & Troubleshooting
+## Known Issues & Troubleshooting
 
 - **UMAP similarity scores showing 1.0**: Under review for improved granularity
 - **Fuzzy matching**: May affect recommendation accuracy in some cases
 - **Memory usage**: Large datasets may require optimization
 
-## 📚 Technical Documentation
+## Technical Documentation
 
 ### Architecture Overview
 - **Data Layer**: Spotify Features CSV processing
@@ -209,22 +209,22 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - **Cosine Similarity**: Vector similarity computation for recommendations
 - **Random Forest**: Classification for genre prediction
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 📧 Contact & Support
+## Contact & Support
 
 **Gurpreet Singh Badrain**  
 *Market Research Analyst & Aspiring Data Analyst*
 
-- 🌐 **GitHub**: [gbadrain](https://github.com/gbadrain)
-- 💼 **LinkedIn**: [gurpreet-badrain](http://linkedin.com/in/gurpreet-badrain-b258a0219)
-- 📧 **Email**: gbadrain@gmail.com
+- **GitHub**: [gbadrain](https://github.com/gbadrain)
+- **LinkedIn**: [gurpreet-badrain](http://linkedin.com/in/gurpreet-badrain-b258a0219)
+- **Email**: gbadrain@gmail.com
 
 ---
 
-## ⭐ Show Your Support
+## Show Your Support
 
 If you found this project helpful, please consider giving it a star on GitHub!
 
@@ -232,4 +232,4 @@ If you found this project helpful, please consider giving it a star on GitHub!
 
 ---
 
-*Built with ❤️ using Streamlit and Machine Learning*
+*Built with care using Streamlit and Machine Learning*
