@@ -510,7 +510,7 @@ def show_backend_geeks_tab():
             selected_cluster = df.loc[mask, cluster_col].iloc[0]
             similar_tracks = similar_tracks[similar_tracks[cluster_col] == selected_cluster]
 
-        # ✅ Removed similarity score slider but kept similarity-based filtering
+        # Removed similarity score slider but kept similarity-based filtering
         similar_tracks["Similarity Score"] = np.round(similarity_scores[0][similar_tracks.index], 4)
 
         # Slider for number of recommendations
@@ -524,7 +524,7 @@ def show_backend_geeks_tab():
         if "genre" not in similar_tracks.columns:
             similar_tracks["genre"] = "N/A"
 
-        # ✅ Show all relevant columns
+        # Show all relevant columns
         display_df = similar_tracks[columns_to_display + ["Listen on Spotify", "Similarity Score"]].copy()
 
         # Rename columns for better readability

@@ -43,30 +43,28 @@ Includes various interactive plots such as:
 ## **For Back-End Geeks**  
 ![Screenshot 2025-06-06 at 1 48 33 PM](https://github.com/user-attachments/assets/c2e4bf3a-f008-42f6-9ce3-f8d537874b97)
 
-### **Technical Overview**  
+## **Technical Overview**  
+
 This section provides a **technical overview** of the recommendation system, focusing on **track metadata, similarity scoring, and clustering techniques**.  
 
-### **Detailed Track Information**  
-Users can explore key attributes such as:  
-- **Track Name & Artist** – Identifies the song and performer.  
-- **Genre** – Categorizes the song based on musical style.  
-- **Danceability, Energy, Valence, Acousticness** – Audio features that define a song's mood and characteristics.  
+Users can explore key attributes such as **track name, artist, genre, danceability, energy, valence, and acousticness**, which define a song's mood and characteristics.  
 
-### **Similarity-Based Recommendations**  
-Using **cosine similarity**, the system finds tracks that closely match a selected song based on numerical audio features.  
-- **Track Selection** – Users can choose a song from the dataset.  
-- **Feature Matching** – The system compares the selected track's attributes with all available songs.  
-- **Ranking & Filtering** – Tracks are sorted based on similarity scores to ensure the most relevant recommendations.  
+Using **cosine similarity**, the system finds tracks that closely match a selected song based on numerical audio features. Users can:  
+- Select a song from the dataset  
+- Compare its attributes with all available songs  
+- Rank and filter recommendations based on similarity scores  
 
-### **Cluster-Based Filtering**  
-If clustering labels are available, recommendations can be refined further:  
-- **Cluster Identification** – Determines the selected track's cluster.  
-- **Filtered Recommendations** – Suggests songs within the same cluster for enhanced accuracy.  
+If clustering labels are available, recommendations can be refined further by:  
+- Identifying the selected track's cluster  
+- Suggesting songs within the same cluster for enhanced accuracy  
 
-### **Interactive Controls & Spotify Integration**  
-- **Recommendation Slider** – Users can adjust the number of recommended tracks.  
-- **Spotify Links** – Direct access to listen to recommended songs.  
-- **Data Table Display** – Presents recommendations with key attributes and similarity scores.  
+Interactive controls include:  
+- A **recommendation slider** to adjust the number of suggested tracks  
+- **Spotify links** for direct listening  
+- A **data table display** presenting recommendations with key attributes and similarity scores  
+
+
+
 
 
 ### Technologies Used
