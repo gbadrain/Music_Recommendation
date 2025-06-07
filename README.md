@@ -6,7 +6,7 @@
 
 A Streamlit-powered interactive dashboard for music discovery, genre exploration, and track recommendations using Spotify audio features and UMAP-based clustering.
 
-![Dashboard Preview](Images/banner.png) <!-- Add your dashboard screenshot here -->
+<img width="1106" alt="Screenshot 2025-06-05 at 6 45 01 PM" src="https://github.com/user-attachments/assets/ad277c4c-764d-438a-9ea9-17465c5971dc" />
 
 ## Project Overview
 
