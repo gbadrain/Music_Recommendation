@@ -236,4 +236,4 @@ If you found this project helpful, please consider giving it a star on GitHub!
 
 ---
 
-*Built with care using Streamlit and Machine Learning*
+*"Without data, you're just another person with an opinion. But with hard work and the right analysis, data becomes the key to unlocking insights that drive real impact."*
