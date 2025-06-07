@@ -1,0 +1,57 @@
+. MUSIC RECOMMENDATION
+├── __pycache__
+│   ├── data_utils.cpython-310.pyc
+│   └── model_script.cpython-310.pyc
+├── dashboard.py
+├── data_utils.py
+├── Geek _Images
+│   ├── Screenshot 2025-06-05 at 6.44.23 PM.png
+│   ├── Screenshot 2025-06-06 at 1.02.31 PM.png
+│   ├── Screenshot 2025-06-06 at 1.03.32 PM.png
+│   ├── Screenshot 2025-06-06 at 1.05.14 PM.png
+│   ├── Screenshot 2025-06-06 at 1.05.33 PM.png
+│   ├── Screenshot 2025-06-06 at 1.30.52 PM.png
+│   ├── Screenshot 2025-06-06 at 1.41.13 PM.png
+│   ├── Screenshot 2025-06-06 at 1.48.33 PM.png
+│   ├── Screenshot 2025-06-06 at 11.47.39 AM.png
+│   └── Screenshot 2025-06-06 at 3.39.06 PM.png
+├── Images
+│   ├── birds-7717268_640.png
+│   ├── flag-2640022_640.jpg
+│   └── Screenshot 2025-06-05 at 6.45.01 PM.png
+├── model_script.py
+├── Output
+│   ├── cleaned_spotify_data.csv
+│   ├── original_with_clusters.csv
+│   ├── pca_results.csv
+│   ├── recommended_songs_with_similarity_umap.csv
+│   ├── scaled_features.csv
+│   └── umap_results.csv
+├── Plots
+│   ├── Danceability_Dist.png
+│   ├── Liveness-V-Instrumentalness.png
+│   ├── Loudness-V-Energy.png
+│   ├── Pop_Dist.png
+│   ├── popularity-V-valence.png
+│   ├── Speechiness_Dist.png
+│   ├── Speechiness-V-Danceability.png
+│   └── Speechiness-V-Instrumentalness.png
+├── README.md
+├── Resource
+│   └── SpotifyFeatures.csv
+├── Slides
+│   ├── 10.png
+│   ├── 11.png
+│   ├── 12.png
+│   ├── 2.png
+│   ├── 3.png
+│   ├── 4.png
+│   ├── 5.png
+│   ├── 6.png
+│   ├── 7.png
+│   ├── 8.png
+│   └── 9.png
+├── spotify_model.ipynb
+└── tree_structure.txt
+
+8 directories, 47 files
