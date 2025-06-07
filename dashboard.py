@@ -431,7 +431,9 @@ def show_slideshow():
 """, unsafe_allow_html=True)
 
     # Load images
-    slides_dir = "/Users/GURU/Desktop/Music_Recommendation/Slides/"
+    # slides_dir = "/Users/GURU/Desktop/Music_Recommendation/Slides/"
+    slides_dir = os.path.join(SCRIPT_DIR, "Slides")
+
     try:
         slides = sorted(
             [f for f in os.listdir(slides_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))],
