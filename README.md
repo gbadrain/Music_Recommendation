@@ -49,37 +49,12 @@ Music_Recommendation/
 ```
 
 ## Quick Start
-
-### Prerequisites
-
-- Python 3.8 or higher
-- Git
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/gbadrain/Music_Recommendation.git
-   cd Music_Recommendation
-   ```
-
-2. **Create virtual environment** (recommended)
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Run the application**
+ **Run the application**
    ```bash
    streamlit run dashboard.py
    ```
 
-5. **Open your browser** and navigate to `http://localhost:8501`
+2. **Open your browser** and navigate to `http://localhost:8501`
 
 ## Dashboard Features
 
