@@ -45,6 +45,8 @@ Includes various interactive plots such as:
 
 ## **Technical Overview**  
 
+
+
 This section provides a **technical overview** of the recommendation system, focusing on **track metadata, similarity scoring, and clustering techniques**.  
 
 Users can explore key attributes such as **track name, artist, genre, danceability, energy, valence, and acousticness**, which define a song's mood and characteristics.  
