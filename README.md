@@ -41,6 +41,7 @@ Includes various interactive plots such as:
 ![Screenshot 2025-06-06 at 1 41 13 PM](https://github.com/user-attachments/assets/c8412b9e-64be-42c3-b5ac-a20e56c4e475)
 
 ## **For Back-End Geeks**  
+![Screenshot 2025-06-06 at 1 48 33 PM](https://github.com/user-attachments/assets/c2e4bf3a-f008-42f6-9ce3-f8d537874b97)
 
 ### **Technical Overview**  
 This section provides a **technical overview** of the recommendation system, focusing on **track metadata, similarity scoring, and clustering techniques**.  
@@ -214,6 +215,18 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - **Email**: gbadrain@gmail.com
 
 ---
+## **Support from Copilot AI**  
+
+Throughout the development of this project, **Copilot AI** provided valuable assistance in:  
+
+- **Debugging & Problem-Solving** – Identifying and resolving errors in code implementation.  
+- **Optimizing Machine Learning Models** – Refining UMAP embeddings, cosine similarity computations, and clustering techniques.  
+- **Enhancing Code Efficiency** – Suggesting improvements for data preprocessing, feature selection, and recommendation logic.  
+- **Improving Documentation** – Structuring README content, formatting markdown, and ensuring clarity in technical explanations.  
+- **Providing Deployment Guidance** – Offering best practices for deploying the Streamlit app on cloud platforms like Streamlit Community Cloud, Heroku, and Docker.  
+
+Copilot AI played a crucial role in streamlining development, ensuring **efficient implementation**, and enhancing the **user experience** of the music recommendation system.  
+
 
 ## Show Your Support
 
