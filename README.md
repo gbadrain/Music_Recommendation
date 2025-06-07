@@ -80,23 +80,65 @@ Interactive controls include:
 ## Project Structure
 
 ```
-Music_Recommendation/
-├── Resource/                           # Dataset storage
-│   └── SpotifyFeatures.csv            # Main Spotify dataset
-├── Output/                             # Processed results
-│   ├── umap_results.csv               # UMAP embeddings
-│   └── recommended_songs_with_similarity_umap.csv
-├── Images/                             # UI assets & banners
-├── Slides/                             # Slideshow images
-├── scripts/                            # Core logic modules
-│   ├── data_utils.py                  # Data preprocessing & utilities
-│   └── model_script.py                # UMAP & similarity computation
-├── .streamlit/                         # Streamlit configuration
-│   └── config.toml                    # App settings
-├── requirements.txt                    # Python dependencies
-├── dashboard.py                        # Main Streamlit application
-├── README.md                          # Project documentation
-└── LICENSE                            # Project license
+MUSIC RECOMMENDATION/  
+├── __pycache__/                         # Cached Python files for faster execution  
+│   ├── data_utils.cpython-310.pyc       # Compiled version of data_utils.py  
+│   └── model_script.cpython-310.pyc     # Compiled version of model_script.py  
+├── backend_analysis.md                  # Backend analysis documentation  
+├── dashboard.py                          # Main Streamlit application  
+├── data_utils.py                         # Data preprocessing & utilities  
+├── IMAGE COLLECTIONS/                    # Screenshots & UI assets  
+│   └── Geek_Images/                      # Dashboard & analysis screenshots  
+│       ├── Screenshot 2025-06-05 at 6.44.23 PM.png  
+│       ├── Screenshot 2025-06-06 at 1.02.31 PM.png  
+│       ├── Screenshot 2025-06-06 at 1.03.32 PM.png  
+│       ├── Screenshot 2025-06-06 at 1.05.14 PM.png  
+│       ├── Screenshot 2025-06-06 at 1.05.33 PM.png  
+│       ├── Screenshot 2025-06-06 at 1.30.52 PM.png  
+│       ├── Screenshot 2025-06-06 at 1.41.13 PM.png  
+│       ├── Screenshot 2025-06-06 at 1.48.33 PM.png  
+│       ├── Screenshot 2025-06-06 at 3.39.06 PM.png  
+│       └── Screenshot 2025-06-07 at 12.43.47 AM.png  
+├── Images/                               # UI assets & banners  
+│   ├── birds-7717268_640.png  
+│   ├── flag-2640022_640.jpg  
+│   └── Screenshot 2025-06-05 at 6.45.01 PM.png  
+├── model_script.py                       # Clustering & similarity computation  
+├── Output/                               # Processed results  
+│   ├── cleaned_spotify_data.csv          # Preprocessed dataset  
+│   ├── original_with_clusters.csv        # Dataset with assigned clusters  
+│   ├── pca_results.csv                   # PCA-transformed features  
+│   ├── recommended_songs_with_similarity_umap.csv # Precomputed song recommendations  
+│   ├── scaled_features.csv               # Normalized numerical features  
+│   └── umap_results.csv                   # UMAP embeddings  
+├── Plots/                                # Feature distribution & relationships  
+│   ├── Danceability_Dist.png             # Danceability distribution plot  
+│   ├── Liveness-V-Instrumentalness.png   # Liveness vs. instrumentalness correlation  
+│   ├── Loudness-V-Energy.png             # Loudness vs. energy correlation plot  
+│   ├── Pop_Dist.png                      # Popularity distribution plot  
+│   ├── popularity-V-valence.png          # Popularity vs. valence plot  
+│   ├── Speechiness_Dist.png              # Speechiness distribution plot  
+│   ├── Speechiness-V-Danceability.png    # Relationship between speechiness & danceability  
+│   └── Speechiness-V-Instrumentalness.png # Speechiness vs. instrumentalness correlation  
+├── README.md                             # Project documentation  
+├── requirements.txt                      # Python dependencies  
+├── Resource/                             # Dataset storage  
+│   └── SpotifyFeatures.csv               # Main Spotify dataset  
+├── Slides/                               # Slideshow images  
+│   ├── 10.png  
+│   ├── 11.png  
+│   ├── 12.png  
+│   ├── 2.png  
+│   ├── 3.png  
+│   ├── 4.png  
+│   ├── 5.png  
+│   ├── 6.png  
+│   ├── 7.png  
+│   ├── 8.png  
+│   └── 9.png  
+├── spotify_model.ipynb                   # Jupyter Notebook for model training & analysis  
+└── tree_structure.txt                     # Stores directory structure for reference  
+
 ```
 
 ## Quick Start

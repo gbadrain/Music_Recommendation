@@ -2,7 +2,7 @@
 
 ## Overview
 
-The backend of your Music Recommendation System is designed to efficiently process, analyze, and recommend songs based on audio features, clustering, and similarity computations. It integrates data preprocessing, dimensionality reduction, clustering, and recommendation logic to provide accurate and personalized music suggestions. This analysis covers the key components of the backend, including data handling, feature engineering, clustering, similarity computations, and data storage.
+The backend of Music Recommendation System is designed to efficiently process, analyze, and recommend songs based on audio features, clustering, and similarity computations. It integrates data preprocessing, dimensionality reduction, clustering, and recommendation logic to provide accurate and personalized music suggestions. This analysis covers the key components of the backend, including data handling, feature engineering, clustering, similarity computations, and data storage.
 
 ## 1. Data Preprocessing & Feature Engineering
 
