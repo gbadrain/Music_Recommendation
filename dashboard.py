@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from data_utils import load_and_preprocess_data
 from dotenv import load_dotenv
-
+from PIL import Image
 # --- New imports for advanced visualizations ---
 import plotly.express as px
 from sklearn.cluster import KMeans
@@ -582,3 +582,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+    
