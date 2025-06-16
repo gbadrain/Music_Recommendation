@@ -239,11 +239,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 **Gurpreet Singh Badrain**  
 *Market Research Analyst & Aspiring Data Analyst*
 
+- **My portfolio** [Data Guru](https://datascienceportfol.io/gbadrain)
 - **GitHub**: [gbadrain](https://github.com/gbadrain)
 - **LinkedIn**: [gurpreet-badrain](http://linkedin.com/in/gurpreet-badrain-b258a0219)
 - **Email**: gbadrain@gmail.com
-- **Streamlit**: [Streamlit App](https://gbadrain-machine-learning.streamlit.app)
-
+- **Streamlit**: [gbadrain-Machine Learnning](https://gbadrain-machine-learning.streamlit.app)
 
 ---
 ## **Support from Copilot AI**  
