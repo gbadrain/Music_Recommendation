@@ -9,3 +9,6 @@ __pycache__/
 
 # Project-local Python venv
 .venv/
+
+# Streamlit cache
+.cache/
