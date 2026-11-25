@@ -117,23 +117,27 @@ def get_recommendations(
     query = feature_matrix[mask.values]
     scores = cosine_similarity(query, feature_matrix)[0]
 
-    # argpartition on only the top candidates — O(n) instead of O(n log n) full sort
+    cluster_col = next((c for c in ("Cluster", "cluster") if c in df.columns), None)
+    selected_cluster = df.loc[mask, cluster_col].iloc[0] if cluster_col else None
+
+    def _apply_filters(idx_sorted: np.ndarray) -> pd.DataFrame:
+        res = df.iloc[idx_sorted].copy()
+        res["Similarity Score"] = np.round(scores[idx_sorted], 4)
+        res = res[res["track_display"] != selected_display]
+        if cluster_col is not None:
+            res = res[res[cluster_col] == selected_cluster]
+        return res[res["Similarity Score"] >= min_score]
+
+    # Fast path: argpartition on a small slice — O(n) instead of O(n log n) full sort
     n_candidates = min(len(df) - 1, max(n + 1, n * 20 + 50))
     top_idx = np.argpartition(-scores, n_candidates)[:n_candidates]
     top_idx = top_idx[np.argsort(-scores[top_idx])]
+    result = _apply_filters(top_idx)
 
-    # Assign scores before reset_index so positions stay tied to the right rows
-    result = df.iloc[top_idx].copy()
-    result["Similarity Score"] = np.round(scores[top_idx], 4)
+    # Fallback: if the candidate window was wiped by cluster/score filters, sort all rows
+    if len(result) < n:
+        result = _apply_filters(np.argsort(-scores))
 
-    result = result[result["track_display"] != selected_display]
-
-    cluster_col = next((c for c in ("Cluster", "cluster") if c in df.columns), None)
-    if cluster_col:
-        selected_cluster = df.loc[mask, cluster_col].iloc[0]
-        result = result[result[cluster_col] == selected_cluster]
-
-    result = result[result["Similarity Score"] >= min_score]
     return result.head(n).reset_index(drop=True)
 
 

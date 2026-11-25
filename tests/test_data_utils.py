@@ -209,3 +209,51 @@ def test_get_recommendations_empty_on_unknown_track(rec_df):
     fm = _feature_matrix(rec_df)
     result = get_recommendations(rec_df, fm, "nonexistent track - nobody", n=5)
     assert result.empty
+
+
+def test_get_recommendations_cluster_fallback():
+    """Fallback to full argsort when the fast-path candidate pool is wiped by the cluster filter.
+
+    Setup: 200 rows, 2 in cluster 0 (the query's cluster), 198 in cluster 1.
+    Rows in cluster 1 are nearly identical to the query → they fill the fast-path
+    candidate window (top-70 for n=1).  After the cluster filter removes all 70 of
+    them, 0 results remain.  The fallback must sort all 200 rows and find the one
+    other cluster-0 track (row 1), even though it has a low similarity score.
+    """
+    rng = np.random.default_rng(7)
+    total = 200
+    base = rng.random(3)  # feature vector for the query track
+
+    data = {
+        "f1": rng.random(total),
+        "f2": rng.random(total),
+        "f3": rng.random(total),
+        "track_display": [f"song {i} - artist {i}" for i in range(total)],
+        "Cluster": [0, 0] + [1] * (total - 2),
+    }
+    df = pd.DataFrame(data)
+
+    # Row 0 (query, cluster 0) — set exact base features
+    df.loc[0, ["f1", "f2", "f3"]] = base
+
+    # Rows 2-199 (cluster 1) — nearly identical to row 0 → high similarity
+    df.loc[2:, "f1"] = base[0] + rng.random(total - 2) * 0.001
+    df.loc[2:, "f2"] = base[1] + rng.random(total - 2) * 0.001
+    df.loc[2:, "f3"] = base[2] + rng.random(total - 2) * 0.001
+
+    # Row 1 (cluster 0) — opposite direction → low similarity (must be found by fallback)
+    df.loc[1, ["f1", "f2", "f3"]] = 1.0 - base
+
+    fm = df[["f1", "f2", "f3"]].values
+
+    result = get_recommendations(df, fm, "song 0 - artist 0", n=1)
+
+    assert not result.empty, (
+        "Fallback failed — no result returned when cluster filter wiped all fast-path candidates"
+    )
+    result_cluster = df.loc[
+        df["track_display"] == result.iloc[0]["track_display"], "Cluster"
+    ].iloc[0]
+    assert result_cluster == 0, (
+        f"Fallback returned a track from cluster {result_cluster}, expected cluster 0"
+    )
