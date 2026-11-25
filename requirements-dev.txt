@@ -1,1 +1,2 @@
 pytest==7.4.4
+musicbrainzngs==0.7.1
