@@ -22,7 +22,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 # Make data_utils importable when pytest is run from the project root.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from data_utils import full_clean_text, load_and_preprocess_data, get_recommendations
+from data_utils import full_clean_text, load_and_preprocess_data, get_recommendations, build_feature_matrix
 
 
 # ---------------------------------------------------------------------------
@@ -212,17 +212,15 @@ def test_get_recommendations_empty_on_unknown_track(rec_df):
 
 
 def test_get_recommendations_cluster_fallback():
-    """Fallback to full argsort when the fast-path candidate pool is wiped by the cluster filter.
+    """Phase 3: Cluster column is ignored — highest-similarity track wins regardless of cluster.
 
-    Setup: 200 rows, 2 in cluster 0 (the query's cluster), 198 in cluster 1.
-    Rows in cluster 1 are nearly identical to the query → they fill the fast-path
-    candidate window (top-70 for n=1).  After the cluster filter removes all 70 of
-    them, 0 results remain.  The fallback must sort all 200 rows and find the one
-    other cluster-0 track (row 1), even though it has a low similarity score.
+    Setup: 200 rows, query in cluster 0, 198 high-similarity tracks in cluster 1,
+    1 low-similarity track in cluster 0.  With no cluster filter, the top result
+    must come from cluster 1 (highest audio similarity), not cluster 0.
     """
     rng = np.random.default_rng(7)
     total = 200
-    base = rng.random(3)  # feature vector for the query track
+    base = rng.random(3)
 
     data = {
         "f1": rng.random(total),
@@ -233,27 +231,173 @@ def test_get_recommendations_cluster_fallback():
     }
     df = pd.DataFrame(data)
 
-    # Row 0 (query, cluster 0) — set exact base features
     df.loc[0, ["f1", "f2", "f3"]] = base
-
-    # Rows 2-199 (cluster 1) — nearly identical to row 0 → high similarity
     df.loc[2:, "f1"] = base[0] + rng.random(total - 2) * 0.001
     df.loc[2:, "f2"] = base[1] + rng.random(total - 2) * 0.001
     df.loc[2:, "f3"] = base[2] + rng.random(total - 2) * 0.001
-
-    # Row 1 (cluster 0) — opposite direction → low similarity (must be found by fallback)
-    df.loc[1, ["f1", "f2", "f3"]] = 1.0 - base
+    df.loc[1, ["f1", "f2", "f3"]] = 1.0 - base  # low-similarity, cluster 0
 
     fm = df[["f1", "f2", "f3"]].values
-
     result = get_recommendations(df, fm, "song 0 - artist 0", n=1)
 
-    assert not result.empty, (
-        "Fallback failed — no result returned when cluster filter wiped all fast-path candidates"
-    )
+    assert not result.empty, "Expected a result when Cluster column is present but ignored"
     result_cluster = df.loc[
         df["track_display"] == result.iloc[0]["track_display"], "Cluster"
     ].iloc[0]
-    assert result_cluster == 0, (
-        f"Fallback returned a track from cluster {result_cluster}, expected cluster 0"
+    assert result_cluster == 1, (
+        f"Expected cluster-1 track (highest similarity); got cluster {result_cluster}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — new tests (6 total)
+# ---------------------------------------------------------------------------
+
+def test_feature_matrix_excludes_bad_cols():
+    """build_feature_matrix drops the 12 non-sonic columns from the numeric feature set."""
+    bad_cols = ["artist_encoded", "genre_encoded", "song_length",
+                "UMAP1", "UMAP2", "UMAP3", "UMAP4", "UMAP5", "UMAP6",
+                "Cluster", "popularity", "key"]
+    good_cols = ["danceability", "energy", "valence", "acousticness", "tempo"]
+    n = 5
+    data = {col: np.ones(n) for col in good_cols + bad_cols}
+    data["track_display"] = [f"song {i}" for i in range(n)]
+    df = pd.DataFrame(data)
+
+    matrix = build_feature_matrix(df)
+    assert matrix.shape[1] == len(good_cols), (
+        f"Expected {len(good_cols)} feature columns, got {matrix.shape[1]}"
+    )
+
+
+def test_no_duplicate_track_display():
+    """Results never contain two rows with the same track_display (dedup keeps highest score)."""
+    rng = np.random.default_rng(99)
+    base = np.array([0.9, 0.8, 0.7])
+    rows = []
+    for i in range(15):
+        rows.append({
+            "f1": rng.random(), "f2": rng.random(), "f3": rng.random(),
+            "track_display": f"song {i} - artist {i}",
+        })
+    rows[0].update({"f1": base[0], "f2": base[1], "f3": base[2]})
+    # Same track_display appearing 3 times (simulates genre-row duplication)
+    for j in range(3):
+        rows.append({
+            "f1": base[0] + 0.001 * (j + 1),
+            "f2": base[1] + 0.001 * (j + 1),
+            "f3": base[2] + 0.001 * (j + 1),
+            "track_display": "dupe song - dupe artist",
+        })
+    df = pd.DataFrame(rows)
+    fm = df[["f1", "f2", "f3"]].values
+
+    result = get_recommendations(df, fm, "song 0 - artist 0", n=5)
+    assert result["track_display"].nunique() == len(result), "Duplicate track_display in results"
+    dupe_count = (result["track_display"] == "dupe song - dupe artist").sum()
+    assert dupe_count <= 1, f"Dupe track appeared {dupe_count} times"
+
+
+def test_cluster_col_ignored():
+    """A Cluster column in df does not filter results — all 5 come from cluster 99."""
+    rng = np.random.default_rng(42)
+    n = 30
+    data = {
+        "f1": rng.random(n),
+        "f2": rng.random(n),
+        "f3": rng.random(n),
+        "track_display": [f"song {i} - artist {i}" for i in range(n)],
+        "Cluster": [0] + [99] * (n - 1),  # query in cluster 0, all candidates in cluster 99
+    }
+    df = pd.DataFrame(data)
+    fm = df[["f1", "f2", "f3"]].values
+
+    result = get_recommendations(df, fm, "song 0 - artist 0", n=5)
+    assert len(result) == 5, f"Expected 5 results ignoring Cluster, got {len(result)}"
+
+
+def test_same_genre_filters_correctly():
+    """With same_genre=True, all results share a genre with the query track."""
+    rng = np.random.default_rng(10)
+    base = np.array([0.9, 0.9, 0.9])
+    n = 40
+    data = {
+        "f1": rng.random(n),
+        "f2": rng.random(n),
+        "f3": rng.random(n),
+        "track_display": [f"song {i} - artist {i}" for i in range(n)],
+        "genre": ["Rock"] * 10 + ["Pop"] * 10 + ["Jazz"] * 10 + ["Hip-Hop"] * 10,
+    }
+    df = pd.DataFrame(data)
+    df.loc[0, ["f1", "f2", "f3"]] = base  # query is Rock (index 0)
+    # Make Hip-Hop songs highly similar to the query so they'd appear without filtering
+    for i in range(30, 40):
+        df.loc[i, "f1"] = base[0] + rng.random() * 0.001
+        df.loc[i, "f2"] = base[1] + rng.random() * 0.001
+        df.loc[i, "f3"] = base[2] + rng.random() * 0.001
+    fm = df[["f1", "f2", "f3"]].values
+
+    result = get_recommendations(df, fm, "song 0 - artist 0", n=5, same_genre=True)
+    assert not result.empty
+    assert (result["genre"] == "Rock").all(), (
+        f"Non-Rock results returned with same_genre=True: {result['genre'].tolist()}"
+    )
+
+
+def test_same_genre_false_allows_cross_genre():
+    """With same_genre=False, songs from other genres can appear in results."""
+    rng = np.random.default_rng(11)
+    base = np.array([0.9, 0.9, 0.9])
+    n = 30
+    data = {
+        "f1": rng.random(n),
+        "f2": rng.random(n),
+        "f3": rng.random(n),
+        "track_display": [f"song {i} - artist {i}" for i in range(n)],
+        "genre": ["Rock"] * 5 + ["Pop"] * 25,  # query is Rock, most tracks are Pop
+    }
+    df = pd.DataFrame(data)
+    df.loc[0, ["f1", "f2", "f3"]] = base
+    # Make Pop songs very similar to the query
+    for i in range(5, 15):
+        df.loc[i, "f1"] = base[0] + rng.random() * 0.001
+        df.loc[i, "f2"] = base[1] + rng.random() * 0.001
+        df.loc[i, "f3"] = base[2] + rng.random() * 0.001
+    fm = df[["f1", "f2", "f3"]].values
+
+    result = get_recommendations(df, fm, "song 0 - artist 0", n=5, same_genre=False)
+    assert "Pop" in result["genre"].values, (
+        "Expected Pop (cross-genre) songs when same_genre=False"
+    )
+
+
+def test_same_genre_dedup_returns_n():
+    """same_genre=True + duplicate track_display rows still yields n distinct results."""
+    base = np.array([0.9, 0.8, 0.7])
+    rows = [{"f1": base[0], "f2": base[1], "f3": base[2],
+              "track_display": "song 0 - artist 0", "genre": "Pop"}]
+    # 10 unique Pop songs with descending similarity
+    for i in range(1, 11):
+        rows.append({
+            "f1": base[0] - i * 0.01,
+            "f2": base[1] - i * 0.01,
+            "f3": base[2] - i * 0.01,
+            "track_display": f"pop song {i} - artist {i}",
+            "genre": "Pop",
+        })
+    # Same 5 track_displays again under a different genre (filtered by genre, then deduped)
+    for i in range(1, 6):
+        rows.append({
+            "f1": base[0] - i * 0.01,
+            "f2": base[1] - i * 0.01,
+            "f3": base[2] - i * 0.01,
+            "track_display": f"pop song {i} - artist {i}",
+            "genre": "Dance",
+        })
+    df = pd.DataFrame(rows)
+    fm = df[["f1", "f2", "f3"]].values
+
+    result = get_recommendations(df, fm, "song 0 - artist 0", n=5, same_genre=True)
+    assert len(result) == 5, f"Expected 5 results, got {len(result)}"
+    assert result["track_display"].nunique() == 5, "Duplicate track_display in results"
+    assert (result["genre"] == "Pop").all(), "Non-Pop result with same_genre=True"

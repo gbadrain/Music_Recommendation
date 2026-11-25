@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-from data_utils import load_and_preprocess_data, get_recommendations
+from data_utils import load_and_preprocess_data, get_recommendations, build_feature_matrix
 from dotenv import load_dotenv
 import plotly.express as px
 
@@ -64,8 +64,8 @@ except Exception as e:
 
 @st.cache_data
 def get_feature_matrix(_df):
-    """Precompute the numeric feature array once; avoids repeated select_dtypes on every click."""
-    return _df.select_dtypes(include=["float64", "int64"]).values
+    """12-column audio+temporal feature matrix; excludes encoded IDs, UMAP, Cluster, popularity, key."""
+    return build_feature_matrix(_df)
 
 
 @st.cache_data
@@ -219,11 +219,12 @@ def show_similar_tracks():
         selected_display = st.selectbox("Choose a track or an artist:", track_options)
         min_similarity = st.slider("Minimum Similarity Score", min_value=0.0, max_value=1.0, value=0.5, step=0.01)
         num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
+        same_genre = st.checkbox("Stay within the same genre", value=True)
 
         with st.spinner("Finding similar tracks…"):
             similar_tracks = get_recommendations(
                 df, get_feature_matrix(df), selected_display,
-                n=num_recs, min_score=min_similarity,
+                n=num_recs, min_score=min_similarity, same_genre=same_genre,
             )
 
         if similar_tracks.empty:
@@ -485,10 +486,12 @@ def show_backend_geeks_tab():
         track_options = get_track_options(df["track_display"])
         selected_display = st.selectbox("Choose a track or an artist:", track_options)
         num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
+        same_genre = st.checkbox("Stay within the same genre", value=True)
 
         with st.spinner("Finding similar tracks…"):
             similar_tracks = get_recommendations(
                 df, get_feature_matrix(df), selected_display, n=num_recs,
+                same_genre=same_genre,
             )
 
         if similar_tracks.empty:

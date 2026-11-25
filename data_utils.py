@@ -3,6 +3,20 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics.pairwise import cosine_similarity
 
+_DROP_COLS = frozenset({
+    "artist_encoded", "genre_encoded", "song_length",
+    "UMAP1", "UMAP2", "UMAP3", "UMAP4", "UMAP5", "UMAP6",
+    "Cluster", "popularity", "key",
+})
+
+
+def build_feature_matrix(df: pd.DataFrame) -> np.ndarray:
+    """12-column audio+temporal feature matrix aligned row-for-row with df."""
+    cols = [c for c in df.select_dtypes(include=["float64", "int64"]).columns
+            if c not in _DROP_COLS]
+    return df[cols].values
+
+
 def full_clean_text(text):
     """Basic text cleaning function: lowercases and removes extra spaces."""
     if not isinstance(text, str):   # blank cells come in as NaN (a float)
@@ -96,6 +110,7 @@ def get_recommendations(
     selected_display: str,
     n: int = 5,
     min_score: float = 0.0,
+    same_genre: bool = True,
 ) -> pd.DataFrame:
     """Return up to n tracks most similar to selected_display, sorted descending by cosine similarity.
 
@@ -105,6 +120,8 @@ def get_recommendations(
         selected_display: The track_display value to query (must match df exactly).
         n: Maximum number of recommendations to return.
         min_score: Drop results with Similarity Score below this threshold (0–1).
+        same_genre: When True and 'genre' column exists, restrict to tracks that share
+                    at least one genre with the query. Default True.
 
     Returns:
         DataFrame with a 'Similarity Score' column, reset index, up to n rows.
@@ -114,19 +131,24 @@ def get_recommendations(
     if not mask.any():
         return pd.DataFrame()
 
-    query = feature_matrix[mask.values]
-    scores = cosine_similarity(query, feature_matrix)[0]
+    scores = cosine_similarity(feature_matrix[mask.values], feature_matrix)[0]
 
-    cluster_col = next((c for c in ("Cluster", "cluster") if c in df.columns), None)
-    selected_cluster = df.loc[mask, cluster_col].iloc[0] if cluster_col else None
+    # Pre-compute query genres once; filter by each row's own genre so dedup always
+    # keeps a same-genre row (not a tied row from a different genre).
+    query_genres = None
+    if same_genre and "genre" in df.columns:
+        _genres = set(df.loc[mask, "genre"].dropna().unique())
+        if _genres:
+            query_genres = _genres
 
     def _apply_filters(idx_sorted: np.ndarray) -> pd.DataFrame:
         res = df.iloc[idx_sorted].copy()
         res["Similarity Score"] = np.round(scores[idx_sorted], 4)
         res = res[res["track_display"] != selected_display]
-        if cluster_col is not None:
-            res = res[res[cluster_col] == selected_cluster]
-        return res[res["Similarity Score"] >= min_score]
+        res = res[res["Similarity Score"] >= min_score]
+        if query_genres is not None:
+            res = res[res["genre"].isin(query_genres)]
+        return res.drop_duplicates(subset=["track_display"], keep="first")
 
     # Fast path: argpartition on a small slice — O(n) instead of O(n log n) full sort
     n_candidates = min(len(df) - 1, max(n + 1, n * 20 + 50))
@@ -134,7 +156,7 @@ def get_recommendations(
     top_idx = top_idx[np.argsort(-scores[top_idx])]
     result = _apply_filters(top_idx)
 
-    # Fallback: if the candidate window was wiped by cluster/score filters, sort all rows
+    # Fallback: if dedup + genre filter reduced fast-path results below n, sort all rows
     if len(result) < n:
         result = _apply_filters(np.argsort(-scores))
 
