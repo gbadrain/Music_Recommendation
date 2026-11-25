@@ -23,10 +23,12 @@ def load_and_preprocess_data(data_path, additional_filepath=None, sample_size=No
     if sample_size and sample_size < len(df):
         df = df.sample(n=sample_size, random_state=42).reset_index(drop=True)
 
-    # Clean track and artist names
-    df["track_name"] = df["track_name"].astype(str).apply(full_clean_text)
-    df["artist_name"] = df["artist_name"].astype(str).apply(full_clean_text)
-    df = df[df["track_name"] != ""]  # drop rows with no song name (one blank row in the data)
+    # Clean track and artist names.  Pass raw values so NaN → "" via full_clean_text;
+    # .astype(str) would turn NaN into the literal string "nan" which then slips past
+    # the blank-row guard below.
+    df["track_name"] = df["track_name"].apply(full_clean_text)
+    df["artist_name"] = df["artist_name"].apply(full_clean_text)
+    df = df[df["track_name"] != ""]  # drop rows with no song name
     df["track_display"] = df["track_name"] + " - " + df["artist_name"]
 
     # Encode 'mode' (major/minor)
