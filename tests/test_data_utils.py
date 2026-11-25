@@ -401,3 +401,40 @@ def test_same_genre_dedup_returns_n():
     assert len(result) == 5, f"Expected 5 results, got {len(result)}"
     assert result["track_display"].nunique() == 5, "Duplicate track_display in results"
     assert (result["genre"] == "Pop").all(), "Non-Pop result with same_genre=True"
+
+
+# ---------------------------------------------------------------------------
+# search_tracks (search box that replaces the 175k-item dropdown)
+# ---------------------------------------------------------------------------
+from data_utils import search_tracks
+
+_OPTIONS = [
+    "adictiva - daddy yankee",
+    "dura - daddy yankee",
+    "gasolina - daddy yankee",
+    "adore you - harry styles",
+    "the daddy song - someone",
+]
+
+
+def test_search_tracks_empty_query_returns_nothing():
+    assert search_tracks(_OPTIONS, "") == []
+    assert search_tracks(_OPTIONS, "   ") == []
+
+
+def test_search_tracks_case_insensitive_and_trimmed():
+    assert search_tracks(_OPTIONS, "  ADICTIVA ") == ["adictiva - daddy yankee"]
+
+
+def test_search_tracks_matches_artist_and_starts_with_first():
+    result = search_tracks(_OPTIONS, "daddy")
+    assert set(result) == {"adictiva - daddy yankee", "dura - daddy yankee",
+                           "gasolina - daddy yankee", "the daddy song - someone"}
+    # nothing starts with "daddy", so all are "contains" matches in original order
+    assert result[0] == "adictiva - daddy yankee"
+    result = search_tracks(_OPTIONS, "ad")
+    assert result[:2] == ["adictiva - daddy yankee", "adore you - harry styles"]  # starts-with first
+
+
+def test_search_tracks_respects_limit():
+    assert len(search_tracks(_OPTIONS, "a", limit=2)) == 2

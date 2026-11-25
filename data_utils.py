@@ -17,6 +17,22 @@ def build_feature_matrix(df: pd.DataFrame) -> np.ndarray:
     return df[cols].values
 
 
+def search_tracks(options, query: str, limit: int = 50) -> list:
+    """Find tracks for the search box: case-insensitive match on song or artist.
+
+    Songs whose name starts with the query come first, then any other match.
+    An empty query returns nothing, so the page never has to list all 175k songs.
+    """
+    q = (query or "").strip().lower()
+    if not q:
+        return []
+    s = pd.Series(list(options), dtype="object")
+    lower = s.str.lower()
+    starts = s[lower.str.startswith(q)]
+    contains = s[lower.str.contains(q, regex=False) & ~lower.str.startswith(q)]
+    return pd.concat([starts, contains]).head(limit).tolist()
+
+
 def full_clean_text(text):
     """Basic text cleaning function: lowercases and removes extra spaces."""
     if not isinstance(text, str):   # blank cells come in as NaN (a float)

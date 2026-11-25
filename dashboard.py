@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-from data_utils import load_and_preprocess_data, get_recommendations, build_feature_matrix
+from data_utils import load_and_preprocess_data, get_recommendations, build_feature_matrix, search_tracks
 from dotenv import load_dotenv
 import plotly.express as px
 
@@ -97,6 +97,25 @@ def get_spotify_link(track_display):
             time.sleep(delay)
             delay *= 2
     return None
+
+def pick_track(key):
+    """Search box + short pick list (replaces the slow 175k-song dropdown).
+
+    Returns the chosen track_display, or None if nothing is picked yet.
+    """
+    query = st.text_input(
+        "Search for a song or artist:",
+        placeholder="e.g. adictiva or daddy yankee",
+        key=f"{key}_search",
+    )
+    if not query.strip():
+        st.info("Type part of a song or artist name to begin.")
+        return None
+    matches = search_tracks(get_track_options(df["track_display"]), query)
+    if not matches:
+        st.warning("No songs match that search. Try fewer letters or a different spelling.")
+        return None
+    return st.selectbox(f"Choose a track ({len(matches)} shown):", matches, key=f"{key}_pick")
 
 def get_spotify_link_html(row):
     link = get_spotify_link(row["track_display"])
@@ -215,8 +234,9 @@ def show_similar_tracks():
         if "track_display" not in df.columns:
             raise ValueError("Column 'track_display' not found in the dataset.")
 
-        track_options = get_track_options(df["track_display"])
-        selected_display = st.selectbox("Choose a track or an artist:", track_options)
+        selected_display = pick_track("similar")
+        if selected_display is None:
+            return
         min_similarity = st.slider("Minimum Similarity Score", min_value=0.0, max_value=1.0, value=0.5, step=0.01)
         num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
         same_genre = st.checkbox("Stay within the same genre", value=True)
@@ -483,8 +503,9 @@ def show_backend_geeks_tab():
         if not all(col in df.columns for col in columns_to_display):
             raise ValueError("Some required columns are missing in the dataset.")
 
-        track_options = get_track_options(df["track_display"])
-        selected_display = st.selectbox("Choose a track or an artist:", track_options)
+        selected_display = pick_track("geeks")
+        if selected_display is None:
+            return
         num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
         same_genre = st.checkbox("Stay within the same genre", value=True)
 
