@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 
 def full_clean_text(text):
     """Basic text cleaning function: lowercases and removes extra spaces."""
+    if not isinstance(text, str):   # blank cells come in as NaN (a float)
+        return ""
     return text.strip().lower()
 
 def load_and_preprocess_data(data_path, additional_filepath=None, sample_size=None):
