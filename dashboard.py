@@ -115,7 +115,12 @@ def pick_track(key):
     if not matches:
         st.warning("No songs match that search. Try fewer letters or a different spelling.")
         return None
-    return st.selectbox(f"Choose a track ({len(matches)} shown):", matches, key=f"{key}_pick")
+    choice = st.selectbox(f"Choose a track ({len(matches)} shown):", matches, key=f"{key}_pick")
+    if "genre" in df.columns:
+        genres = sorted(df.loc[df["track_display"] == choice, "genre"].dropna().unique())
+        if genres:
+            st.caption(f"Genre in our dataset: {', '.join(genres)}")
+    return choice
 
 def get_spotify_link_html(row):
     link = get_spotify_link(row["track_display"])
