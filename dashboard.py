@@ -79,15 +79,20 @@ def get_spotify_link(track_display):
     while attempt <= max_attempts:
         try:
             result = sp.search(query, type="track", limit=1)
-            time.sleep(delay)
             if result["tracks"]["items"]:
                 return result["tracks"]["items"][0]["external_urls"]["spotify"]
             return None
         except Exception as e:
             st.warning(f"Spotify API error (attempt {attempt}): {str(e)}")
             attempt += 1
+            time.sleep(delay)  # wait only before retrying after an error
             delay *= 2  # exponential backoff
     return None
+
+@st.cache_data
+def get_track_options(track_display):
+    """Sorted list of tracks for the dropdown, built once instead of on every click."""
+    return sorted(track_display.dropna().unique())
 
 def get_spotify_link_html(row):
     link = get_spotify_link(row["track_display"])
@@ -206,7 +211,7 @@ def show_similar_tracks():
         if "track_display" not in df.columns:
             raise ValueError("Column 'track_display' not found in the dataset.")
         
-        track_options = sorted(df["track_display"].dropna().unique())
+        track_options = get_track_options(df["track_display"])
         selected_display = st.selectbox("Choose a track or an artist:", track_options)
 
         mask = (df["track_display"].str.lower().str.strip() == selected_display.lower().strip())
@@ -221,6 +226,7 @@ def show_similar_tracks():
         sorted_indices = sorted_indices[sorted_indices < len(df)]
         
         similar_tracks = df.iloc[sorted_indices].copy().reset_index(drop=True)
+        similar_tracks["Similarity Score"] = np.round(similarity_scores[0][sorted_indices], 4)
         similar_tracks = similar_tracks[similar_tracks["track_display"] != selected_display]
         
         if "Cluster" in df.columns or "cluster" in df.columns:
@@ -230,7 +236,6 @@ def show_similar_tracks():
         
         min_similarity = st.slider("Minimum Similarity Score", min_value=0.0, max_value=1.0, value=0.5, step=0.01)
         
-        similar_tracks["Similarity Score"] = np.round(similarity_scores[0][similar_tracks.index], 4)
         similar_tracks = similar_tracks[similar_tracks["Similarity Score"] >= min_similarity]
         
         num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
@@ -488,7 +493,7 @@ def show_backend_geeks_tab():
             raise ValueError("Some required columns are missing in the dataset.")
 
         # Allow user to select a track or artist
-        track_options = sorted(df["track_display"].dropna().unique())
+        track_options = get_track_options(df["track_display"])
         selected_display = st.selectbox("Choose a track or an artist:", track_options)
 
         # Filter data based on selection
@@ -505,6 +510,7 @@ def show_backend_geeks_tab():
         sorted_indices = sorted_indices[sorted_indices < len(df)]
 
         similar_tracks = df.iloc[sorted_indices].copy().reset_index(drop=True)
+        similar_tracks["Similarity Score"] = np.round(similarity_scores[0][sorted_indices], 4)
         similar_tracks = similar_tracks[similar_tracks["track_display"] != selected_display]
 
         # Filter by cluster if available
@@ -514,7 +520,6 @@ def show_backend_geeks_tab():
             similar_tracks = similar_tracks[similar_tracks[cluster_col] == selected_cluster]
 
         #  Removed similarity score slider but kept similarity-based filtering
-        similar_tracks["Similarity Score"] = np.round(similarity_scores[0][similar_tracks.index], 4)
 
         # Slider for number of recommendations
         num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)

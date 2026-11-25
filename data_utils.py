@@ -26,6 +26,7 @@ def load_and_preprocess_data(data_path, additional_filepath=None, sample_size=No
     # Clean track and artist names
     df["track_name"] = df["track_name"].astype(str).apply(full_clean_text)
     df["artist_name"] = df["artist_name"].astype(str).apply(full_clean_text)
+    df = df[df["track_name"] != ""]  # drop rows with no song name (one blank row in the data)
     df["track_display"] = df["track_name"] + " - " + df["artist_name"]
 
     # Encode 'mode' (major/minor)
