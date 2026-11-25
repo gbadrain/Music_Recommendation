@@ -1,10 +1,7 @@
 import pandas as pd
 import numpy as np
-import umap
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
 
 def full_clean_text(text):
     """Basic text cleaning function: lowercases and removes extra spaces."""
@@ -90,12 +87,62 @@ def load_and_preprocess_data(data_path, additional_filepath=None, sample_size=No
     return df, scaler
 
 # ================================================================
+# Unified Recommendation Helper
+# ================================================================
+
+def get_recommendations(
+    df: pd.DataFrame,
+    feature_matrix: np.ndarray,
+    selected_display: str,
+    n: int = 5,
+    min_score: float = 0.0,
+) -> pd.DataFrame:
+    """Return up to n tracks most similar to selected_display, sorted descending by cosine similarity.
+
+    Args:
+        df: Full track DataFrame with a 'track_display' column.
+        feature_matrix: Precomputed numeric feature array aligned row-for-row with df.
+        selected_display: The track_display value to query (must match df exactly).
+        n: Maximum number of recommendations to return.
+        min_score: Drop results with Similarity Score below this threshold (0–1).
+
+    Returns:
+        DataFrame with a 'Similarity Score' column, reset index, up to n rows.
+        Empty DataFrame if selected_display is not found.
+    """
+    mask = df["track_display"] == selected_display
+    if not mask.any():
+        return pd.DataFrame()
+
+    query = feature_matrix[mask.values]
+    scores = cosine_similarity(query, feature_matrix)[0]
+
+    # argpartition on only the top candidates — O(n) instead of O(n log n) full sort
+    n_candidates = min(len(df) - 1, max(n + 1, n * 20 + 50))
+    top_idx = np.argpartition(-scores, n_candidates)[:n_candidates]
+    top_idx = top_idx[np.argsort(-scores[top_idx])]
+
+    # Assign scores before reset_index so positions stay tied to the right rows
+    result = df.iloc[top_idx].copy()
+    result["Similarity Score"] = np.round(scores[top_idx], 4)
+
+    result = result[result["track_display"] != selected_display]
+
+    cluster_col = next((c for c in ("Cluster", "cluster") if c in df.columns), None)
+    if cluster_col:
+        selected_cluster = df.loc[mask, cluster_col].iloc[0]
+        result = result[result[cluster_col] == selected_cluster]
+
+    result = result[result["Similarity Score"] >= min_score]
+    return result.head(n).reset_index(drop=True)
+
+
+# ================================================================
 # UMAP Embedding and Similarity Functions
 # ================================================================
 def compute_umap(df, features, n_components=6, random_state=42, metric="cosine"):
-    """
-    Computes a UMAP embedding using the specified features.
-    """
+    """Computes a UMAP embedding using the specified features."""
+    import umap  # lazy: heavy JIT compile not needed at dashboard startup
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(df[features])
     umap_model = umap.UMAP(n_components=n_components, random_state=random_state, metric=metric)

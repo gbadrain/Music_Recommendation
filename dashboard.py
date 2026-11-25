@@ -1,20 +1,17 @@
 import os
 import time
 import re
+import logging
 import numpy as np
 import pandas as pd
 import streamlit as st
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-from sklearn.metrics.pairwise import cosine_similarity
-import matplotlib.pyplot as plt
-import seaborn as sns
-from data_utils import load_and_preprocess_data
+from data_utils import load_and_preprocess_data, get_recommendations
 from dotenv import load_dotenv
-from PIL import Image
-# --- New imports for advanced visualizations ---
 import plotly.express as px
-from sklearn.cluster import KMeans
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------
 # Configuration
@@ -33,17 +30,15 @@ load_dotenv()
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 
-# Initialize Spotify client with error handling
-try:
-    sp = spotipy.Spotify(
+@st.cache_resource
+def get_spotify_client():
+    """Create the Spotify client once per server process and reuse it."""
+    return spotipy.Spotify(
         client_credentials_manager=SpotifyClientCredentials(
-            client_id=SPOTIFY_CLIENT_ID,
-            client_secret=SPOTIFY_CLIENT_SECRET
+            client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+            client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
         )
     )
-except Exception as e:
-    st.error(f"Failed to initialize Spotify client: {str(e)}")
-    st.stop()
 
 # ---------------------------
 # Data Loading & Preprocessing
@@ -66,6 +61,19 @@ except Exception as e:
     st.error(f"Data loading failed: {str(e)}")
     st.stop()
 
+
+@st.cache_data
+def get_feature_matrix(_df):
+    """Precompute the numeric feature array once; avoids repeated select_dtypes on every click."""
+    return _df.select_dtypes(include=["float64", "int64"]).values
+
+
+@st.cache_data
+def get_track_options(track_display):
+    """Sorted list of tracks for the dropdown, built once instead of on every click."""
+    return sorted(track_display.dropna().unique())
+
+
 # ---------------------------
 # Helper Functions
 # ---------------------------
@@ -75,24 +83,20 @@ def get_spotify_link(track_display):
     max_attempts = 3
     attempt = 1
     delay = 2  # start with a 2-second delay
-    
+
     while attempt <= max_attempts:
         try:
-            result = sp.search(query, type="track", limit=1)
+            result = get_spotify_client().search(query, type="track", limit=1)
             if result["tracks"]["items"]:
                 return result["tracks"]["items"][0]["external_urls"]["spotify"]
             return None
         except Exception as e:
+            logger.warning("Spotify API error (attempt %d): %s", attempt, e)
             st.warning(f"Spotify API error (attempt {attempt}): {str(e)}")
             attempt += 1
-            time.sleep(delay)  # wait only before retrying after an error
-            delay *= 2  # exponential backoff
+            time.sleep(delay)
+            delay *= 2
     return None
-
-@st.cache_data
-def get_track_options(track_display):
-    """Sorted list of tracks for the dropdown, built once instead of on every click."""
-    return sorted(track_display.dropna().unique())
 
 def get_spotify_link_html(row):
     link = get_spotify_link(row["track_display"])
@@ -210,57 +214,40 @@ def show_similar_tracks():
         st.subheader("Find Similar Tracks")
         if "track_display" not in df.columns:
             raise ValueError("Column 'track_display' not found in the dataset.")
-        
+
         track_options = get_track_options(df["track_display"])
         selected_display = st.selectbox("Choose a track or an artist:", track_options)
-
-        mask = (df["track_display"].str.lower().str.strip() == selected_display.lower().strip())
-        track_features = df.loc[mask, df.select_dtypes(include=["float64", "int64"]).columns]
-
-        if track_features.empty:
-            st.warning("Track features unavailable for similarity scoring.")
-            return
-        
-        similarity_scores = cosine_similarity(track_features, df.select_dtypes(include=["float64", "int64"]))
-        sorted_indices = np.argsort(-similarity_scores[0])
-        sorted_indices = sorted_indices[sorted_indices < len(df)]
-        
-        similar_tracks = df.iloc[sorted_indices].copy().reset_index(drop=True)
-        similar_tracks["Similarity Score"] = np.round(similarity_scores[0][sorted_indices], 4)
-        similar_tracks = similar_tracks[similar_tracks["track_display"] != selected_display]
-        
-        if "Cluster" in df.columns or "cluster" in df.columns:
-            cluster_col = "Cluster" if "Cluster" in df.columns else "cluster"
-            selected_cluster = df.loc[mask, cluster_col].iloc[0]
-            similar_tracks = similar_tracks[similar_tracks[cluster_col] == selected_cluster]
-        
         min_similarity = st.slider("Minimum Similarity Score", min_value=0.0, max_value=1.0, value=0.5, step=0.01)
-        
-        similar_tracks = similar_tracks[similar_tracks["Similarity Score"] >= min_similarity]
-        
         num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
-        similar_tracks = similar_tracks.head(num_recs)
+
+        with st.spinner("Finding similar tracks…"):
+            similar_tracks = get_recommendations(
+                df, get_feature_matrix(df), selected_display,
+                n=num_recs, min_score=min_similarity,
+            )
+
+        if similar_tracks.empty:
+            st.warning("No tracks found above that similarity threshold — try lowering the slider.")
+            return
+
         similar_tracks["Listen on Spotify"] = similar_tracks.apply(get_spotify_link_html, axis=1)
-        
         if "genre" not in similar_tracks.columns:
             similar_tracks["genre"] = "N/A"
-        
+
         display_df = similar_tracks[["track_display", "genre", "Listen on Spotify", "Similarity Score"]].copy()
-        display_df.rename(
-            columns={
-                "track_display": "TRACK NAME - ARTIST NAME",
-                "genre": "GENRE",
-                "Listen on Spotify": "PLAY SONG 🎵",
-                "Similarity Score": "SIMILARITY SCORE"
-            },
-            inplace=True,
-        )
-        
+        display_df.rename(columns={
+            "track_display": "TRACK NAME - ARTIST NAME",
+            "genre": "GENRE",
+            "Listen on Spotify": "PLAY SONG 🎵",
+            "Similarity Score": "SIMILARITY SCORE",
+        }, inplace=True)
+
         st.subheader("Recommended Tracks (Filtered by Similarity Score)")
         st.markdown(display_df.to_html(escape=False, index=False), unsafe_allow_html=True)
-        
+
     except Exception as e:
-        st.error(f"Error in generating recommendations: {str(e)}")
+        logger.exception("show_similar_tracks failed")
+        st.error("Could not generate recommendations. Check your inputs and try again.")
 
 # ---------------------------
 # Visualization Functions
@@ -277,6 +264,8 @@ def show_feature_density_violin(df):
     
     top_genres = df['genre'].value_counts().nlargest(10).index.tolist()
     filtered_df = df[df['genre'].isin(top_genres)]
+    if len(filtered_df) > 5000:
+        filtered_df = filtered_df.sample(5000, random_state=42)
 
     fig = px.violin(filtered_df, y=selected_feature, x='genre', color='genre', box=True, points='all',
                     color_discrete_sequence=px.colors.qualitative.Set3)
@@ -312,8 +301,10 @@ def show_genre_constellation(df):
         st.warning("Please select at least one genre to visualize.")
         return
 
-    # Filter dataset
+    # Filter dataset; sample to keep the 3D scatter responsive
     filtered_df = df[df['genre'].isin(selected_genres)]
+    if len(filtered_df) > 10000:
+        filtered_df = filtered_df.sample(10000, random_state=42)
 
     fig = px.scatter_3d(
         filtered_df,
@@ -477,87 +468,57 @@ def show_slideshow():
 # ---------------------------
 
 def show_backend_geeks_tab():
-    """Displays detailed track information and finds similar tracks using cosine similarity."""
+    """Displays detailed track info and similar tracks via cosine similarity."""
     try:
         st.header("For Back-end Geeks")
         st.markdown("Detailed track information including danceability, valence, track ID, genre, artist name, and other features.")
 
-        # Ensure the dataframe is not empty
         if df.empty:
             st.warning("No track data available.")
             return
 
-        # Select relevant columns
-        columns_to_display = ["track_display", "track_id", "artist_name_x", "genre", "danceability", "energy", "valence", "acousticness"]
+        columns_to_display = ["track_display", "track_id", "artist_name_x", "genre",
+                               "danceability", "energy", "valence", "acousticness"]
         if not all(col in df.columns for col in columns_to_display):
             raise ValueError("Some required columns are missing in the dataset.")
 
-        # Allow user to select a track or artist
         track_options = get_track_options(df["track_display"])
         selected_display = st.selectbox("Choose a track or an artist:", track_options)
+        num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
 
-        # Filter data based on selection
-        mask = (df["track_display"].str.lower().str.strip() == selected_display.lower().strip())
-        track_features = df.loc[mask, df.select_dtypes(include=["float64", "int64"]).columns]
+        with st.spinner("Finding similar tracks…"):
+            similar_tracks = get_recommendations(
+                df, get_feature_matrix(df), selected_display, n=num_recs,
+            )
 
-        if track_features.empty:
-            st.warning("Track features unavailable for similarity scoring.")
+        if similar_tracks.empty:
+            st.warning("No similar tracks found for this selection.")
             return
 
-        # Compute similarity scores
-        similarity_scores = cosine_similarity(track_features, df.select_dtypes(include=["float64", "int64"]))
-        sorted_indices = np.argsort(-similarity_scores[0])
-        sorted_indices = sorted_indices[sorted_indices < len(df)]
-
-        similar_tracks = df.iloc[sorted_indices].copy().reset_index(drop=True)
-        similar_tracks["Similarity Score"] = np.round(similarity_scores[0][sorted_indices], 4)
-        similar_tracks = similar_tracks[similar_tracks["track_display"] != selected_display]
-
-        # Filter by cluster if available
-        if "Cluster" in df.columns or "cluster" in df.columns:
-            cluster_col = "Cluster" if "Cluster" in df.columns else "cluster"
-            selected_cluster = df.loc[mask, cluster_col].iloc[0]
-            similar_tracks = similar_tracks[similar_tracks[cluster_col] == selected_cluster]
-
-        #  Removed similarity score slider but kept similarity-based filtering
-
-        # Slider for number of recommendations
-        num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
-        similar_tracks = similar_tracks.head(num_recs)
-
-        # Add Spotify links
         similar_tracks["Listen on Spotify"] = similar_tracks.apply(get_spotify_link_html, axis=1)
-
-        # Ensure genre column exists
         if "genre" not in similar_tracks.columns:
             similar_tracks["genre"] = "N/A"
 
-        # Show all relevant columns
         display_df = similar_tracks[columns_to_display + ["Listen on Spotify", "Similarity Score"]].copy()
+        display_df.rename(columns={
+            "track_display": "TRACK NAME - ARTIST NAME",
+            "track_id": "TRACK ID",
+            "artist_name_x": "ARTIST NAME",
+            "genre": "GENRE",
+            "danceability": "DANCEABILITY",
+            "energy": "ENERGY",
+            "valence": "VALENCE",
+            "acousticness": "ACOUSTICNESS",
+            "Listen on Spotify": "PLAY SONG 🎵",
+            "Similarity Score": "SIMILARITY SCORE",
+        }, inplace=True)
 
-        # Rename columns for better readability
-        display_df.rename(
-            columns={
-                "track_display": "TRACK NAME - ARTIST NAME",
-                "track_id": "TRACK ID",
-                "artist_name_x": "ARTIST NAME",
-                "genre": "GENRE",
-                "danceability": "DANCEABILITY",
-                "energy": "ENERGY",
-                "valence": "VALENCE",
-                "acousticness": "ACOUSTICNESS",
-                "Listen on Spotify": "PLAY SONG 🎵",
-                "Similarity Score": "SIMILARITY SCORE"
-            },
-            inplace=True,
-        )
-
-        # Display recommendations
         st.subheader("Recommended Tracks (Filtered by Similarity Score)")
         st.dataframe(display_df, use_container_width=True)
 
     except Exception as e:
-        st.error(f"Error in generating recommendations: {str(e)}")
+        logger.exception("show_backend_geeks_tab failed")
+        st.error("Could not generate recommendations. Check your inputs and try again.")
 
 
 
