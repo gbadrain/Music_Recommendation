@@ -43,7 +43,7 @@
 
 ![Discover page](docs/screenshots/discover.png)
 
-*Example: Don Williams' "Amanda" returns Willie Nelson, Patsy Cline, Hank Williams Jr., Conway Twitty and George Strait — all classic country, found from sound alone. (The Spotify players appear under each card in the live app.)*
+*Example: Don Williams' "Amanda" returns Willie Nelson, Patsy Cline, Hank Williams Jr., Conway Twitty and George Strait — ranked by how closely their audio features match, with "Same genre only" turned on. (The Spotify players appear under each card in the live app.)*
 
 ## How the recommendations work
 
