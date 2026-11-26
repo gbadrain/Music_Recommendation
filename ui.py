@@ -83,6 +83,9 @@ a.sm-listen:hover { background: rgba(124,92,255,0.55); }
 
 .sm-footer { color: #7f879c; font-size: 0.8rem; line-height: 1.6; margin-top: 1rem; }
 .sm-footer a { color: #b9a8ff !important; text-decoration: none; }
+.sm-avatar { display: block; width: 84px; height: 84px; margin: 10px 0 8px; border-radius: 50%;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.45); transition: transform .18s ease; }
+.sm-avatar:hover { transform: translateY(-3px) scale(1.04); }
 .sm-note { color: #8790a6; font-size: 0.8rem; margin-top: 1.4rem; }
 </style>
 """
@@ -155,10 +158,12 @@ def stat_html(value, label) -> str:
     return f'<div class="sm-card sm-stat"><div class="v sm-grad">{escape(str(value))}</div><div class="l">{escape(label)}</div></div>'
 
 
-def footer_html() -> str:
+def footer_html(avatar_b64: str = "") -> str:
+    avatar = (f'<img class="sm-avatar" src="data:image/png;base64,{avatar_b64}" alt="{escape(AUTHOR)}">'
+              if avatar_b64 else "")
     return (
         '<div class="sm-footer">'
-        f'Built by <b>{escape(AUTHOR)}</b><br>{escape(AUTHOR_TITLE)}<br>'
+        f'Built by <b>{escape(AUTHOR)}</b><br>{escape(AUTHOR_TITLE)}<br>{avatar}'
         f'<a href="{GITHUB_URL}" target="_blank" rel="noopener">GitHub</a> · '
         f'<a href="{PORTFOLIO_URL}" target="_blank" rel="noopener">Portfolio</a><br>'
         '<span>Data: Spotify audio-features dataset (Kaggle, 2019). Not affiliated with Spotify.</span>'

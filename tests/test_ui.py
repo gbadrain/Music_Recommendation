@@ -54,3 +54,9 @@ def test_spotify_embed_url():
 def test_song_card_can_hide_listen_link():
     html = song_card_html("Song", "Artist", ["Pop"], 0.9, "abc123", show_listen=False)
     assert "Listen" not in html and "90% match" in html
+
+
+def test_footer_shows_avatar_only_when_given():
+    from ui import footer_html
+    assert "sm-avatar" not in footer_html()
+    assert 'src="data:image/png;base64,abc"' in footer_html("abc")

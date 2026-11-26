@@ -26,6 +26,19 @@ MAIN_DATA_PATH = os.path.join(SCRIPT_DIR, "Resource", "SpotifyFeatures.csv")
 ADDITIONAL_DATA_PATH = os.path.join(SCRIPT_DIR, "Output", "umap_results.csv")
 SLIDES_DIR = os.path.join(SCRIPT_DIR, "Slides")
 
+AVATAR_PATH = os.path.join(SCRIPT_DIR, "Images", "author_avatar.png")
+
+
+@st.cache_data
+def load_avatar_b64(path):
+    import base64
+    try:
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except OSError:
+        return ""
+
+
 PAGES = ["Overview", "Discover", "Explore the data", "Project story", "Under the hood"]
 PAGE_ICONS = {"Overview": "◆", "Discover": "✦", "Explore the data": "◎", "Project story": "▤", "Under the hood": "⚙"}
 
@@ -430,7 +443,7 @@ def main():
         st.markdown(f"<p class='sm-brand'><span class='sm-icon'>🎧</span><span>{ui.APP_NAME}</span></p>"
                     "<p class='sm-tagline'>Music that sounds alike</p>", unsafe_allow_html=True)
         page = st.radio("Go to", PAGES, format_func=lambda p: f"{PAGE_ICONS[p]}  {p}", label_visibility="collapsed")
-        st.markdown(ui.footer_html(), unsafe_allow_html=True)
+        st.markdown(ui.footer_html(load_avatar_b64(AVATAR_PATH)), unsafe_allow_html=True)
 
     {"Overview": show_overview, "Discover": show_discover, "Explore the data": show_explore,
      "Project story": show_story, "Under the hood": show_under_the_hood}[page]()
