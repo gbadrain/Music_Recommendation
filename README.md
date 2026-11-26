@@ -15,7 +15,7 @@
 - **Listen while you browse.** Every recommended song has its own small Spotify player, so you can hear matches without leaving the page.
 - **Explains itself.** A radar chart shows *why* songs match (their sound profiles line up), and a histogram shows how rare a close match really is.
 - **Fast.** Search a song and get matches in under a second, with no external API calls.
-- **Correct and tested.** Two real bugs found and fixed during the 2026 upgrade, with 34 automated tests guarding the logic.
+- **Correct and tested.** Two app bugs and one data-leakage flaw in the original model found and fixed during the 2026 review, with 34 automated tests guarding the logic.
 - **Honest about the data.** The app shows each song's dataset genre labels and notes their limits instead of hiding them.
 
 ### Skills demonstrated
@@ -102,6 +102,7 @@ This started as a 2025 data-analytics bootcamp project. On **November 25, 2026**
 - Author section with photo, GitHub and portfolio links, and this README with screenshots.
 
 ### 5. Making it trustworthy
+- **Re-checked the 2025 model results.** Found that the Random Forest's 90% accuracy came from data leakage (the genre was one of its inputs). Re-run correctly: 36% across 25 genres, versus 4% for guessing. See *Original analysis* below.
 - **34 automated tests** (`pytest`) covering data cleaning, search, the recommendation logic, the same-genre filter, and the page building blocks.
 - Every change was checked by running the real app on the real data before it went live.
 
@@ -174,13 +175,26 @@ K-means groups songs automatically by similarity: you choose how many groups (k)
 **Random Forest — "can sound predict genre?"**
 A Random Forest is a large set of decision trees ("Is energy above 0.7? Is acousticness below 0.2?…") that each make a guess and then vote. The notebook trained one (150 trees, balanced across genres, 80/20 train/test split) to predict a song's genre from its audio features — a useful check of how much "sound" really tells you about "genre".
 
-**Reported results.** The figures below are copied from the 2025 notebook and were **not re-verified** in the 2026 rebuild. Recommenders are usually judged by how useful the suggestions are rather than by accuracy, so treat these as exploratory:
+### Checking the 2025 results (November 2026 review)
 
-| Approach | Accuracy | Precision | Recall |
-|---|---|---|---|
-| Cosine similarity | ~72% | ~70% | ~85% |
-| UMAP clustering | ~75.6% | ~72% | ~88% |
-| Random Forest + UMAP | ~75.8% | ~71.6% | ~90.5% |
+During the 2026 review the original results were checked against the notebook, and two problems were found and corrected:
+
+1. **A results table in the old README couldn't be traced to the notebook.** Its figures (72–76% accuracy) don't appear anywhere in the notebook's outputs, so it has been removed.
+2. **The Random Forest's 90% accuracy came from data leakage.** One of the model's inputs was `genre_encoded` — the genre itself, the very thing it was predicting — and it was the model's most important feature (39%). That's like grading a test with the answers printed on the question sheet.
+
+The model was re-run correctly, using only the 12 audio features:
+
+| Random Forest predicting genre | Accuracy |
+|---|---|
+| **Audio features only (corrected, 2026)** | **36%** |
+| Random guessing (25 genres) | 4% |
+| Same model with the genre leaked in (the 2025 setup) | 94% — not meaningful |
+
+*Setup: 20,000 songs (up to 800 per genre, songs listed under only one genre), 25 genres, 80/20 split, fixed random seed. One run, so treat ±2 points as noise.*
+
+**What it means:** sound alone predicts genre about **9 times better than guessing**, but far from perfectly. Comedy, opera, soundtrack and classical are easy to tell apart (they *sound* distinctive), while indie, alternative, rock and soul overlap heavily. The most useful features were speechiness, acousticness, danceability and instrumentalness. This is also why SoundMatch offers a **"Same genre only"** switch: similar sound doesn't always mean the same genre.
+
+**Clustering check:** the notebook's k-means silhouette scores were low (best 0.29 at 2 clusters, falling to about 0.14 at 9), meaning songs don't split into clean, separate groups. That supports the 2026 decision to drop cluster labels from the recommendations.
 
 ## About the author
 
