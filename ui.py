@@ -27,7 +27,8 @@ html, body, [class*="css"], .stMarkdown, .stText { font-family: 'Inter', sans-se
 .block-container { padding-top: 2.2rem; max-width: 1200px; }
 h1, h2, h3 { letter-spacing: -0.02em; }
 
-.sm-brand { font-size: 1.45rem; font-weight: 700; margin: 0 0 2px; }
+.sm-brand { font-size: 1.45rem; font-weight: 700; margin: 0 0 2px; display: flex; align-items: center; gap: 10px; }
+.sm-brand .sm-icon { font-size: 2.3rem; line-height: 1; -webkit-text-fill-color: initial; }
 .sm-brand span, .sm-grad {
   background: linear-gradient(90deg, #a78bfa, #38bdf8 55%, #2dd4bf);
   -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -60,6 +61,7 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 .sm-stat .v { font-size: 1.9rem; font-weight: 700; }
 .sm-stat .l { color: #9aa3b8; font-size: 0.85rem; }
 
+.sm-card.sm-song { height: auto; margin-bottom: 8px; }
 .sm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; margin-top: 0.6rem; }
 .sm-song { display: flex; flex-direction: column; gap: 8px; }
 .sm-art {
@@ -117,7 +119,13 @@ def badges_html(genres) -> str:
     return "".join(f'<span class="sm-badge">{escape(str(g))}</span>' for g in genres if g)
 
 
-def song_card_html(title, artist, genres, score, track_id) -> str:
+def spotify_embed_url(track_id) -> str:
+    """Spotify's embeddable player for one track (compact when shown at 80px high)."""
+    url = spotify_track_url(track_id)
+    return url.replace("/track/", "/embed/track/") + "?utm_source=generator&theme=0" if url else ""
+
+
+def song_card_html(title, artist, genres, score, track_id, show_listen=True) -> str:
     """One recommendation card. All dataset text is escaped."""
     title = str(title or "").strip() or "Untitled"
     artist = str(artist or "").strip()
@@ -126,7 +134,7 @@ def song_card_html(title, artist, genres, score, track_id) -> str:
     initial = escape(title[0].upper())
     url = spotify_track_url(track_id)
     listen = (f'<a class="sm-listen" href="{escape(url)}" target="_blank" rel="noopener">Listen ↗</a>'
-              if url else "")
+              if url and show_listen else "")
     return (
         '<div class="sm-card sm-song">'
         f'<div class="sm-art" style="background: linear-gradient(135deg, {c1}, {c2});">{initial}</div>'

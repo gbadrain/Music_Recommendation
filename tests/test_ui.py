@@ -43,3 +43,14 @@ def test_song_card_without_track_id_has_no_listen_link():
 
 def test_badges_skip_empty_values():
     assert badges_html(["Pop", "", None]).count("sm-badge") == 1
+
+
+def test_spotify_embed_url():
+    from ui import spotify_embed_url
+    assert spotify_embed_url("0BRjO6ga9RKCKjfDqeFgWV").startswith("https://open.spotify.com/embed/track/0BRjO6ga9RKCKjfDqeFgWV")
+    assert spotify_embed_url("") == ""
+
+
+def test_song_card_can_hide_listen_link():
+    html = song_card_html("Song", "Artist", ["Pop"], 0.9, "abc123", show_listen=False)
+    assert "Listen" not in html and "90% match" in html

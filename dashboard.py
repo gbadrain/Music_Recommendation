@@ -118,20 +118,30 @@ def selected_song_panel(track_display):
             unsafe_allow_html=True,
         )
     with right:
-        url = ui.spotify_track_url(row["track_id"])
-        if url:
-            st.iframe(url.replace("/track/", "/embed/track/") + "?utm_source=generator&theme=0", height=152)
+        embed = ui.spotify_embed_url(row["track_id"])
+        if embed:
+            st.iframe(embed, height=152)
 
 
-def render_song_grid(results):
-    cards = []
-    for _, r in results.iterrows():
-        info = TRACK_INFO.loc[r["track_display"]] if r["track_display"] in TRACK_INFO.index else None
-        title = info["song_title"] if info is not None else r["track_display"]
-        artist = info["artist_display"] if info is not None else ""
-        genres = info["genres"] if info is not None else [r.get("genre", "")]
-        cards.append(ui.song_card_html(title, artist, genres, r["Similarity Score"], r.get("track_id", "")))
-    st.markdown(f"<div class='sm-grid'>{''.join(cards)}</div>", unsafe_allow_html=True)
+def render_song_grid(results, per_row=3):
+    """Song cards in rows of three, each with its own small Spotify player."""
+    rows = list(results.iterrows())
+    for i in range(0, len(rows), per_row):
+        cols = st.columns(per_row)
+        for col, (_, r) in zip(cols, rows[i:i + per_row]):
+            info = TRACK_INFO.loc[r["track_display"]] if r["track_display"] in TRACK_INFO.index else None
+            title = info["song_title"] if info is not None else r["track_display"]
+            artist = info["artist_display"] if info is not None else ""
+            genres = info["genres"] if info is not None else [r.get("genre", "")]
+            track_id = r.get("track_id", "")
+            with col:
+                st.markdown(ui.song_card_html(title, artist, genres, r["Similarity Score"], track_id,
+                                              show_listen=False), unsafe_allow_html=True)
+                embed = ui.spotify_embed_url(track_id)
+                if embed:
+                    st.iframe(embed, height=80)
+                else:
+                    st.caption("No preview available for this song.")
 
 
 # ---------------------------
@@ -177,7 +187,7 @@ def show_discover():
         min_similarity = st.slider("How close a match?", 0.0, 1.0, 0.5, 0.01,
                                    help="Only show songs at least this similar (0 = anything, 1 = identical).")
     with c2:
-        num_recs = st.slider("How many songs?", 1, 12, 6)
+        num_recs = st.slider("How many songs?", 3, 12, 6, step=3)
     with c3:
         same_genre = st.toggle("Same genre only", value=True,
                                help="On: stay within the song's genres. Off: pure 'sounds alike', any genre.")
@@ -193,7 +203,8 @@ def show_discover():
     if results.empty:
         st.warning("No songs are that close a match. Lower “How close a match?” or turn off “Same genre only”.")
         return
-    st.markdown("<h3 style='margin-top:1.2rem'>Songs you might like</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='margin-top:1.2rem'>Songs you might like</h3>"
+                "<p class='sm-note' style='margin-top:-6px'>Press play to hear a preview right here. If you're signed in to Spotify in this browser, you may hear the full song.</p>", unsafe_allow_html=True)
     render_song_grid(results)
 
 
@@ -353,7 +364,7 @@ def show_under_the_hood():
 # ---------------------------
 def main():
     with st.sidebar:
-        st.markdown(f"<p class='sm-brand'>🎧 <span>{ui.APP_NAME}</span></p>"
+        st.markdown(f"<p class='sm-brand'><span class='sm-icon'>🎧</span><span>{ui.APP_NAME}</span></p>"
                     "<p class='sm-tagline'>Music that sounds alike</p>", unsafe_allow_html=True)
         page = st.radio("Go to", PAGES, format_func=lambda p: f"{PAGE_ICONS[p]}  {p}", label_visibility="collapsed")
         st.markdown(ui.footer_html(), unsafe_allow_html=True)
