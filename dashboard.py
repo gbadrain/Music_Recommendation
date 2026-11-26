@@ -7,7 +7,10 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
-from data_utils import load_and_preprocess_data, get_recommendations, build_feature_matrix, search_tracks
+from sklearn.metrics.pairwise import cosine_similarity
+import plotly.graph_objects as go
+
+from data_utils import load_and_preprocess_data, get_recommendations, build_feature_matrix, feature_columns, search_tracks
 import ui
 
 logger = logging.getLogger(__name__)
@@ -69,6 +72,16 @@ def get_track_info(_df):
 
 
 TRACK_INFO = get_track_info(df)
+
+RADAR_FEATURES = ["danceability", "energy", "valence", "acousticness", "instrumentalness",
+                  "speechiness", "liveness", "loudness", "tempo"]
+
+
+@st.cache_data
+def get_percentiles(_df):
+    """Each song's percentile (0–100) on the radar features, across all songs."""
+    cols = [c for c in RADAR_FEATURES if c in _df.columns]
+    return (_df[cols].rank(pct=True) * 100).round(1)
 
 
 def pretty(track_display):
@@ -326,6 +339,7 @@ def show_under_the_hood():
     selected = pick_track("geeks")
     if selected is None:
         return
+    selected_song_panel(selected)
     c1, c2 = st.columns([2, 1], vertical_alignment="bottom")
     num_recs = c1.slider("How many songs?", 1, 12, 6, key="geeks_n")
     same_genre = c2.toggle("Same genre only", value=True, key="geeks_genre")
@@ -357,6 +371,54 @@ def show_under_the_hood():
         },
     )
     st.caption("Feature values are standardized (0 = average across all songs).")
+
+    show_match_radar(selected, results)
+    show_similarity_histogram(selected, results)
+
+
+def show_match_radar(selected, results):
+    """Radar chart: the picked song's sound profile vs its top 3 matches (percentiles)."""
+    pct = get_percentiles(df)
+    cols = list(pct.columns)
+    pick_idx = df.index[df["track_display"] == selected][0]
+    st.markdown("<h3 style='margin-top:1.6rem'>Why these songs match</h3>", unsafe_allow_html=True)
+    st.caption("Each axis shows where a song ranks among all songs (0 = lowest, 100 = highest). "
+               "Matching songs have a similar shape.")
+    fig = go.Figure()
+    palette = ["#a78bfa", "#2dd4bf", "#38bdf8", "#f472b6"]
+    labels = [c.capitalize() for c in cols] + [cols[0].capitalize()]
+    traces = [(pretty(selected) + " (your pick)", pick_idx)]
+    for t in results["track_display"].head(3):
+        traces.append((pretty(t), df.index[df["track_display"] == t][0]))
+    for i, (name, idx) in enumerate(traces):
+        vals = list(pct.loc[idx, cols]) + [pct.loc[idx, cols[0]]]
+        fig.add_trace(go.Scatterpolar(r=vals, theta=labels, name=name, fill="toself" if i == 0 else None,
+                                      line=dict(color=palette[i % len(palette)], width=3 if i == 0 else 2),
+                                      opacity=0.95 if i == 0 else 0.8))
+    fig.update_layout(polar=dict(bgcolor="rgba(0,0,0,0)", radialaxis=dict(range=[0, 100], gridcolor="rgba(255,255,255,0.12)"),
+                                 angularaxis=dict(gridcolor="rgba(255,255,255,0.12)")),
+                      legend=dict(orientation="h", y=-0.12))
+    st.plotly_chart(_style_fig(fig, 520), width="stretch")
+
+
+def show_similarity_histogram(selected, results):
+    """Histogram of similarity between the pick and every song, with matches marked."""
+    X = get_feature_matrix(df)
+    mask = (df["track_display"] == selected).values
+    scores = cosine_similarity(X[mask][:1], X)[0]
+    scores = scores[~mask]
+    top = float(results["Similarity Score"].min())
+    share = (scores >= top).mean() * 100
+    st.markdown("<h3 style='margin-top:1.6rem'>How rare is a close match?</h3>", unsafe_allow_html=True)
+    st.caption(f"Similarity between your pick and every other song in the library ({len(scores):,} listings). "
+               f"Only {share:.2f}% score as high as the songs recommended above.")
+    sample = pd.Series(scores).sample(min(len(scores), 60000), random_state=42)
+    fig = px.histogram(sample, nbins=80, color_discrete_sequence=["#7c5cff"])
+    fig.add_vrect(x0=top, x1=1.0, fillcolor="#2dd4bf", opacity=0.25, line_width=0,
+                  annotation_text="Recommended", annotation_position="top left")
+    fig.update_layout(showlegend=False, xaxis_title="Cosine similarity to your pick", yaxis_title="Songs (sample)",
+                      bargap=0.05)
+    st.plotly_chart(_style_fig(fig, 380), width="stretch")
 
 
 # ---------------------------

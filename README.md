@@ -2,7 +2,7 @@
 
 [![Open the live app](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://gbadrain-machine-learning.streamlit.app)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)
-![Tests](https://img.shields.io/badge/tests-31%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-33%20passing-brightgreen.svg)
 
 **SoundMatch** is an interactive music recommender. Pick a song you like and it finds songs that *sound* like it, by comparing more than 175,000 tracks on 12 audio features (energy, mood, tempo, danceability and more).
 
@@ -20,7 +20,7 @@
 | **Discover** | Search a song, get matches as cards with a match %, genre labels and a link to listen on Spotify. Choose how close a match you want, how many songs, and whether to stay in the same genre |
 | **Explore the data** | Interactive 3D genre map (UMAP), genre "fingerprints" (parallel coordinates), and how features spread across genres (violin plots) |
 | **Project story** | The slides from the original analysis |
-| **Under the hood** | The method in plain words, plus the full numbers behind every match |
+| **Under the hood** | The method in plain words, the full numbers behind every match, a radar chart of why songs match, and how rare a close match is |
 
 ![Discover page](docs/screenshots/discover.png)
 
@@ -31,6 +31,10 @@
 3. **Clean results.** ID-like columns (encoded artist and genre numbers) are excluded from the math, the same song listed under several genres appears only once, and an optional **same-genre** filter keeps results within the song's genres.
 
 ![Under the hood page](docs/screenshots/under-the-hood.png)
+
+Under the hood also explains each result visually: a **radar chart** compares your song's sound profile with its top 3 matches (here, Don Williams' "Amanda" next to Patsy Cline, Willie Nelson and Hank Williams Jr.), and a **histogram** shows how similar every song in the library is to your pick, so you can see how rare a close match is.
+
+![Why these songs match](docs/screenshots/under-the-hood-charts.png)
 
 ## Explore the data — interactive charts
 
@@ -59,7 +63,7 @@ This started as a 2025 data-analytics bootcamp project. In November 2026 it was 
 - **Cleaner feature set**: removed label-encoded IDs, UMAP and cluster columns from the similarity math, which had been mixing "made-up" numbers into "sounds alike".
 - **Much faster**: removed a built-in 2-second pause per Spotify lookup, replaced the 175,000-item dropdown with a search box, and now builds Spotify links directly from track IDs (no API calls). Search to results took about 0.6 seconds in testing.
 - **New design**: dark theme, card layout, match % bars, renamed pages and plain-language wording.
-- **Tests and pinned versions**: 31 automated tests (`pytest`) and exact package versions, so a surprise library update can't break the app again.
+- **Tests and pinned versions**: 33 automated tests (`pytest`) and exact package versions, so a surprise library update can't break the app again.
 
 ## Data
 

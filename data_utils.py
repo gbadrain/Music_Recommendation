@@ -10,11 +10,14 @@ _DROP_COLS = frozenset({
 })
 
 
+def feature_columns(df: pd.DataFrame) -> list:
+    """Names of the 12 audio/temporal columns used for similarity."""
+    return [c for c in df.select_dtypes(include=["float64", "int64"]).columns if c not in _DROP_COLS]
+
+
 def build_feature_matrix(df: pd.DataFrame) -> np.ndarray:
     """12-column audio+temporal feature matrix aligned row-for-row with df."""
-    cols = [c for c in df.select_dtypes(include=["float64", "int64"]).columns
-            if c not in _DROP_COLS]
-    return df[cols].values
+    return df[feature_columns(df)].values
 
 
 def search_tracks(options, query: str, limit: int = 50) -> list:
