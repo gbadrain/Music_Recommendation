@@ -2,7 +2,7 @@
 
 [![Open the live app](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://gbadrain-machine-learning.streamlit.app)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)
-![Tests](https://img.shields.io/badge/tests-33%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-34%20passing-brightgreen.svg)
 
 **SoundMatch** is an interactive music recommender. Pick a song you like and it finds songs that *sound* like it, by comparing more than 175,000 tracks on 12 audio features (energy, mood, tempo, danceability and more).
 
@@ -15,7 +15,7 @@
 - **Listen while you browse.** Every recommended song has its own small Spotify player, so you can hear matches without leaving the page.
 - **Explains itself.** A radar chart shows *why* songs match (their sound profiles line up), and a histogram shows how rare a close match really is.
 - **Fast.** Search a song and get matches in under a second, with no external API calls.
-- **Correct and tested.** Two real bugs found and fixed during the 2026 upgrade, with 33 automated tests guarding the logic.
+- **Correct and tested.** Two real bugs found and fixed during the 2026 upgrade, with 34 automated tests guarding the logic.
 - **Honest about the data.** The app shows each song's dataset genre labels and notes their limits instead of hiding them.
 
 ### Skills demonstrated
@@ -77,15 +77,40 @@ Under the hood also explains each result visually: a **radar chart** compares yo
 
 ## 2026 upgrade — what changed and why
 
-This started as a 2025 data-analytics bootcamp project. In November 2026 it was rebuilt to be faster, more correct and easier to use:
+This started as a 2025 data-analytics bootcamp project. On **November 25, 2026** it was reviewed and rebuilt in one day to be more correct, faster, and easier to use. Here is the full list, in the order it happened.
 
-- **Fixed a crash** caused by pandas 3 and one blank song name in the data.
-- **Fixed a scoring bug**: similarity scores were being read from the wrong rows, so the displayed scores (and the score filter) didn't match the songs shown.
-- **Cleaner feature set**: removed label-encoded IDs, UMAP and cluster columns from the similarity math, which had been mixing "made-up" numbers into "sounds alike".
-- **Much faster**: removed a built-in 2-second pause per Spotify lookup, replaced the 175,000-item dropdown with a search box, and now builds Spotify links directly from track IDs (no API calls). Search to results took about 0.6 seconds in testing.
-- **New design**: dark theme, card layout, match % bars, renamed pages and plain-language wording.
-- **Built-in listening and explanations**: a Spotify player on every recommendation, plus radar and histogram charts that explain each result.
-- **Tests and pinned versions**: 33 automated tests (`pytest`) and exact package versions, so a surprise library update can't break the app again.
+### 1. Fixing what was broken
+- **Crash on start-up.** The live app stopped with `'float' object has no attribute 'strip'`. Cause: the hosting service installed **pandas 3**, which treats blank cells differently, and one song in the data had no name. Fix: blank names are handled safely and that row is dropped.
+- **Wrong similarity scores.** After the results were re-sorted, each song's score was read from the wrong row, so the scores shown (and the "how close a match" filter) didn't belong to the songs listed. Fix: each score is attached to its song before sorting. Checked on 300 random songs against a full, unshortened calculation: all matched.
+- **Pinned versions.** Every package is now locked to an exact version that works on Python 3.13, so a surprise update can't break the app again.
+
+### 2. Making the recommendations make sense
+- **Cleaner features.** The similarity math had been using 24 columns, including label-encoded artist and genre numbers, UMAP coordinates and cluster labels. Those are IDs or derived values, not sound, and for about 98% of songs the UMAP/cluster values were filled-in averages. The model now uses **12 real audio features** only.
+- **No duplicates.** The same song listed under several genres now appears once.
+- **"Same genre only" switch.** Without it, results are pure "sounds alike" across genres. With it (the default), every result shares a genre with your song. Measured on 200 random songs: same-genre results went from 29% (off) to 100% (on).
+
+### 3. Making it fast
+- Removed a built-in **2-second pause** after every Spotify lookup.
+- Replaced a **175,000-song dropdown** (which froze the browser) with a search box.
+- Spotify links are now **built from each song's track ID**, so the app makes no API calls and needs no keys.
+- A faster "top matches only" search (partial sort) and data caching. Search to results: about 0.6 seconds in testing.
+
+### 4. Making it look and read like a product
+- New name **SoundMatch**, dark theme, card layout, match % bars, genre badges and plain-language page names.
+- A **Spotify player on every recommendation**, so you can listen without leaving the page.
+- **Radar and histogram charts** on *Under the hood* that explain why songs match and how rare a close match is.
+- Author section with photo, GitHub and portfolio links, and this README with screenshots.
+
+### 5. Making it trustworthy
+- **34 automated tests** (`pytest`) covering data cleaning, search, the recommendation logic, the same-genre filter, and the page building blocks.
+- Every change was checked by running the real app on the real data before it went live.
+
+### Tried and set aside: better genre labels from MusicBrainz
+The dataset's genre labels are sometimes surprising (one "Country Road" is labeled Blues, Atlas Genius is labeled Children's Music). We tested replacing them with genres from **MusicBrainz**, a free, community-run music database:
+
+- **Pilot on 100 artists:** 60% got genres, and they were more specific and often more accurate (John Mayall → blues rock, British blues; Atlas Genius → indietronica). Strict name matching correctly rejected wrong matches.
+- **Why we stopped:** MusicBrainz allows about one request per second, so all 14,500 artists would have taken **up to about 30 hours** at the pace we measured; the genres are per *artist*, not per *song*; and the data is licensed for **non-commercial use only**.
+- **Decision:** for a portfolio project the Kaggle labels are good enough, so the app keeps them and **shows each song's dataset genres openly** so users can judge them. It may be worth revisiting later.
 
 ## Data
 
@@ -133,9 +158,23 @@ docs/screenshots/   Screenshots used in this README
 
 Python · Streamlit · pandas · NumPy · scikit-learn · UMAP · Plotly · pytest
 
-## Original analysis (2025)
+## Original analysis (2025) — the methods in plain language
 
-The original notebook ([`spotify_model.ipynb`](spotify_model.ipynb)) and [backend analysis](backend_analysis.md) cover data exploration, UMAP clustering and model comparisons. The metrics below are reported from that notebook and were **not re-verified** in the 2026 rebuild:
+The original notebook ([`spotify_model.ipynb`](spotify_model.ipynb)) and [backend analysis](backend_analysis.md) explored the data with four techniques. Here's what each one does, without the math.
+
+**Cosine similarity — "how alike are two songs?"**
+Imagine describing every song with a list of numbers: how danceable, how energetic, how happy it sounds, and so on. Each list is like an arrow pointing in some direction. Two songs whose arrows point in nearly the same direction sound alike, even if one is louder overall. Cosine similarity measures the angle between the arrows: 1.0 means the same direction (very alike), 0 means unrelated, and negative means opposite. **This is the method the live app uses** for its recommendations.
+
+**PCA and UMAP — "squeezing many features into a map"**
+Twelve features are impossible to picture. PCA (Principal Component Analysis) and UMAP (Uniform Manifold Approximation and Projection) compress them into just a few numbers while keeping similar songs close together — like flattening a globe into a map. The notebook used PCA with 7 components and UMAP with 6 (measured with cosine distance). The **3D genre map** on the *Explore the data* page shows three of those UMAP dimensions.
+
+**K-means clustering — "sorting songs into groups"**
+K-means groups songs automatically by similarity: you choose how many groups (k), and it places each song in the group whose center it's closest to. The notebook tested several values of k to find a sensible number of groups. In 2026 we found the cluster labels covered only about 2% of songs, so they're no longer used in the recommendations.
+
+**Random Forest — "can sound predict genre?"**
+A Random Forest is a large set of decision trees ("Is energy above 0.7? Is acousticness below 0.2?…") that each make a guess and then vote. The notebook trained one (150 trees, balanced across genres, 80/20 train/test split) to predict a song's genre from its audio features — a useful check of how much "sound" really tells you about "genre".
+
+**Reported results.** The figures below are copied from the 2025 notebook and were **not re-verified** in the 2026 rebuild. Recommenders are usually judged by how useful the suggestions are rather than by accuracy, so treat these as exploratory:
 
 | Approach | Accuracy | Precision | Recall |
 |---|---|---|---|
