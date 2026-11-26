@@ -50,6 +50,10 @@ def load_and_preprocess_data(data_path, additional_filepath=None, sample_size=No
     if sample_size and sample_size < len(df):
         df = df.sample(n=sample_size, random_state=42).reset_index(drop=True)
 
+    # Keep the original capitalization for display ("Adictiva", "Daddy Yankee")
+    df["song_title"] = df["track_name"].fillna("").astype(str).str.strip()
+    df["artist_display"] = df["artist_name"].fillna("").astype(str).str.strip()
+
     # Clean track and artist names.  Pass raw values so NaN → "" via full_clean_text;
     # .astype(str) would turn NaN into the literal string "nan" which then slips past
     # the blank-row guard below.

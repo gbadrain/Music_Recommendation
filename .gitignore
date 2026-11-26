@@ -1,5 +1,6 @@
-# Ignore environment variables
+# Ignore environment variables and Streamlit secrets (API keys)
 .env
+.streamlit/secrets.toml
 
 # Ignore compiled Python files
 __pycache__/

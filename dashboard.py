@@ -1,111 +1,97 @@
 import os
-import time
 import re
 import logging
+
 import numpy as np
 import pandas as pd
 import streamlit as st
-import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
-from data_utils import load_and_preprocess_data, get_recommendations, build_feature_matrix, search_tracks
-from dotenv import load_dotenv
 import plotly.express as px
 
+from data_utils import load_and_preprocess_data, get_recommendations, build_feature_matrix, search_tracks
+import ui
+
 logger = logging.getLogger(__name__)
+
+st.set_page_config(page_title=f"{ui.APP_NAME} · Music that sounds alike", page_icon="🎧", layout="wide")
+st.markdown(ui.CSS, unsafe_allow_html=True)
 
 # ---------------------------
 # Configuration
 # ---------------------------
-# Set paths relative to script location
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MAIN_DATA_PATH = os.path.join(SCRIPT_DIR, "Resource", "SpotifyFeatures.csv")
 ADDITIONAL_DATA_PATH = os.path.join(SCRIPT_DIR, "Output", "umap_results.csv")
-IMAGE_DIR = os.path.join(SCRIPT_DIR, "Images")
 SLIDES_DIR = os.path.join(SCRIPT_DIR, "Slides")
 
-# ---------------------------
-# Load Environment Variables (Secure API Credentials)
-# ---------------------------
-load_dotenv()
-SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
-SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+PAGES = ["Overview", "Discover", "Explore the data", "Project story", "Under the hood"]
+PAGE_ICONS = {"Overview": "◆", "Discover": "✦", "Explore the data": "◎", "Project story": "▤", "Under the hood": "⚙"}
 
-@st.cache_resource
-def get_spotify_client():
-    """Create the Spotify client once per server process and reuse it."""
-    return spotipy.Spotify(
-        client_credentials_manager=SpotifyClientCredentials(
-            client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-            client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-        )
-    )
 
 # ---------------------------
-# Data Loading & Preprocessing
+# Data loading (cached once per server)
 # ---------------------------
-@st.cache_data
+@st.cache_data(show_spinner="Loading the song library…")
 def load_data(main_path, additional_path):
-    try:
-        df, scaler = load_and_preprocess_data(main_path, additional_filepath=additional_path)
-        df = df.reset_index(drop=True)
-        numeric_cols = df.select_dtypes(include=["float64", "int64"]).columns
-        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
-        return df
-    except Exception as e:
-        st.error(f"Failed to load data: {str(e)}")
-        st.stop()
+    df, _scaler = load_and_preprocess_data(main_path, additional_filepath=additional_path)
+    df = df.reset_index(drop=True)
+    numeric_cols = df.select_dtypes(include=["float64", "int64"]).columns
+    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+    return df
+
 
 try:
     df = load_data(MAIN_DATA_PATH, ADDITIONAL_DATA_PATH)
-except Exception as e:
-    st.error(f"Data loading failed: {str(e)}")
+except Exception:
+    logger.exception("Data loading failed")
+    st.error("The music data couldn't be loaded. Refresh the page in a minute.")
     st.stop()
 
 
 @st.cache_data
 def get_feature_matrix(_df):
-    """12-column audio+temporal feature matrix; excludes encoded IDs, UMAP, Cluster, popularity, key."""
+    """12-column audio feature matrix (no ID-like columns, UMAP, Cluster, popularity, or key)."""
     return build_feature_matrix(_df)
 
 
 @st.cache_data
 def get_track_options(track_display):
-    """Sorted list of tracks for the dropdown, built once instead of on every click."""
     return sorted(track_display.dropna().unique())
 
 
-# ---------------------------
-# Helper Functions
-# ---------------------------
-@st.cache_data(ttl=3600)  # Cache for 1 hour
-def get_spotify_link(track_display):
-    query = track_display.replace("-", " ")
-    max_attempts = 3
-    attempt = 1
-    delay = 2  # start with a 2-second delay
+@st.cache_data
+def get_track_info(_df):
+    """track_display -> original title, artist, track_id, and all dataset genres."""
+    first = _df.drop_duplicates("track_display").set_index("track_display")
+    genres = _df.groupby("track_display")["genre"].agg(lambda g: sorted(set(g.dropna())))
+    info = first[["song_title", "artist_display", "track_id"]].copy()
+    info["genres"] = genres
+    return info
 
-    while attempt <= max_attempts:
-        try:
-            result = get_spotify_client().search(query, type="track", limit=1)
-            if result["tracks"]["items"]:
-                return result["tracks"]["items"][0]["external_urls"]["spotify"]
-            return None
-        except Exception as e:
-            logger.warning("Spotify API error (attempt %d): %s", attempt, e)
-            st.warning(f"Spotify API error (attempt {attempt}): {str(e)}")
-            attempt += 1
-            time.sleep(delay)
-            delay *= 2
-    return None
+
+TRACK_INFO = get_track_info(df)
+
+
+def pretty(track_display):
+    """'adictiva - daddy yankee' -> 'Adictiva — Daddy Yankee' (original capitalization)."""
+    if track_display in TRACK_INFO.index:
+        row = TRACK_INFO.loc[track_display]
+        return f"{row['song_title']} — {row['artist_display']}"
+    return track_display
+
+
+# ---------------------------
+# Shared pieces
+# ---------------------------
+def page_header(title, subtitle):
+    st.markdown(f"<h1 style='margin-bottom:0.2rem'>{title}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color:#a9b1c6; margin-top:0; font-size:1.02rem'>{subtitle}</p>", unsafe_allow_html=True)
+
 
 def pick_track(key):
-    """Search box + short pick list (replaces the slow 175k-song dropdown).
-
-    Returns the chosen track_display, or None if nothing is picked yet.
-    """
+    """Search box + short pick list. Returns the chosen track_display or None."""
     query = st.text_input(
-        "Search for a song or artist:",
-        placeholder="e.g. adictiva or daddy yankee",
+        "Search for a song or artist",
+        placeholder="Try “adictiva”, “country road”, or “daddy yankee”",
         key=f"{key}_search",
     )
     if not query.strip():
@@ -115,470 +101,264 @@ def pick_track(key):
     if not matches:
         st.warning("No songs match that search. Try fewer letters or a different spelling.")
         return None
-    choice = st.selectbox(f"Choose a track ({len(matches)} shown):", matches, key=f"{key}_pick")
-    if "genre" in df.columns:
-        genres = sorted(df.loc[df["track_display"] == choice, "genre"].dropna().unique())
-        if genres:
-            st.caption(f"Genre in our dataset: {', '.join(genres)}")
-    return choice
+    return st.selectbox(f"Pick a song ({len(matches)} shown)", matches, key=f"{key}_pick", format_func=pretty)
 
-def get_spotify_link_html(row):
-    link = get_spotify_link(row["track_display"])
-    return f'<a href="{link}" target="_blank">Listen on Spotify</a>' if link else "No Link"
+
+def selected_song_panel(track_display):
+    """Shows the chosen song with its genres and a Spotify preview player."""
+    row = TRACK_INFO.loc[track_display]
+    left, right = st.columns([3, 2], vertical_alignment="center")
+    with left:
+        st.markdown(
+            f"<div class='sm-card'><div class='sm-artist'>Your pick</div>"
+            f"<div class='sm-title' style='font-size:1.25rem'>{ui.escape(row['song_title'])}</div>"
+            f"<div class='sm-artist' style='margin-bottom:8px'>{ui.escape(row['artist_display'])}</div>"
+            f"{ui.badges_html(row['genres'])}"
+            f"<div class='sm-note' style='margin-top:6px'>Genre labels come from the dataset.</div></div>",
+            unsafe_allow_html=True,
+        )
+    with right:
+        url = ui.spotify_track_url(row["track_id"])
+        if url:
+            st.iframe(url.replace("/track/", "/embed/track/") + "?utm_source=generator&theme=0", height=152)
+
+
+def render_song_grid(results):
+    cards = []
+    for _, r in results.iterrows():
+        info = TRACK_INFO.loc[r["track_display"]] if r["track_display"] in TRACK_INFO.index else None
+        title = info["song_title"] if info is not None else r["track_display"]
+        artist = info["artist_display"] if info is not None else ""
+        genres = info["genres"] if info is not None else [r.get("genre", "")]
+        cards.append(ui.song_card_html(title, artist, genres, r["Similarity Score"], r.get("track_id", "")))
+    st.markdown(f"<div class='sm-grid'>{''.join(cards)}</div>", unsafe_allow_html=True)
+
 
 # ---------------------------
-# Dashboard Tab Functions
+# Pages
 # ---------------------------
-
-
-def show_home():
-    # Custom CSS for styling
-    st.markdown("""
-    <style>
-        .welcome-header {
-            color: #1DB954;
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-        .welcome-text {
-            color: #FFFFFF;
-            font-size: 1.1rem;
-            margin-bottom: 2rem;
-        }
-        .banner-container {
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            margin-bottom: 2rem;
-        }
-        .feature-card {
-            background: #282828;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-        }
-        .feature-title {
-            color: #1DB954;
-            font-size: 1.3rem;
-            margin-bottom: 0.5rem;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # Header Section
-    st.markdown('<div class="welcome-header">MUSIC RECOMMENDATION DASHBOARD</div>', unsafe_allow_html=True)
-    st.markdown('<div class="welcome-text">Welcome! Discover new music, explore genres, and generate playlists using the navigation sidebar.</div>', 
-                unsafe_allow_html=True)
-
-    # Banner Section with Error Handling
-    banner_path = os.path.join(IMAGE_DIR, "birds-7717268_640.png")
-    banner_container = st.container()
-    
-    with banner_container:
-        st.markdown('<div class="banner-container">', unsafe_allow_html=True)
-        
-        if os.path.exists(banner_path):
-            try:
-                st.image(banner_path, 
-                        use_container_width=True,
-                        caption="Discover Music with Gurpreet Singh Badrain",)
-            except Exception as e:
-                st.warning(f"Error loading banner: {str(e)}")
-                show_placeholder_banner()
-        else:
-            st.warning("Custom banner image not found at specified path")
-            show_placeholder_banner()
-            
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Feature Cards
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-title">🎵 Discover Music</div>
-            <div style="color: #B3B3B3;">
-                Find similar tracks based on your favorite songs using Spotify's audio analysis.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-title">📊 Genre Explorer</div>
-            <div style="color: #B3B3B3;">
-                Visualize music characteristics across 100+ genres and sub-genres.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-title">🎨 Audio Features</div>
-            <div style="color: #B3B3B3;">
-                Explore how danceability, energy, valence and acousticness define your music taste.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-def show_placeholder_banner():
-    """Display a music-themed placeholder banner"""
-    st.image(
-        "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?ixlib=rb-1.2.1&auto=format&fit=crop&w=1200&q=80",
-        use_container_width=True,
-        caption="Music connects us all"
+def show_overview():
+    st.markdown(
+        f"<div class='sm-hero'><h1>Find music that <span class='sm-grad'>sounds like</span> the songs you love</h1>"
+        f"<p>{ui.APP_NAME} compares more than 175,000 songs on how they actually sound — energy, mood, tempo, "
+        "danceability and more — and suggests songs that match. Pick a song, and get your matches in a second.</p></div>",
+        unsafe_allow_html=True,
     )
+    n_genres = df["genre"].nunique() if "genre" in df.columns else 0
+    c1, c2, c3, c4 = st.columns(4)
+    c1.markdown(ui.stat_html(f"{df['track_display'].nunique():,}", "unique songs"), unsafe_allow_html=True)
+    c2.markdown(ui.stat_html(f"{n_genres}", "genres"), unsafe_allow_html=True)
+    c3.markdown(ui.stat_html("12", "audio features compared"), unsafe_allow_html=True)
+    c4.markdown(ui.stat_html("< 1 s", "to get matches"), unsafe_allow_html=True)
 
-def show_similar_tracks():
+    st.markdown("<h3 style='margin-top:1.8rem'>How it works</h3>", unsafe_allow_html=True)
+    s1, s2, s3 = st.columns(3)
+    s1.markdown(ui.card_html("Search a song", "Type any part of a song or artist name and pick it from the list.", 1), unsafe_allow_html=True)
+    s2.markdown(ui.card_html("We compare its sound", "Its 12 audio features are matched against every other track using cosine similarity.", 2), unsafe_allow_html=True)
+    s3.markdown(ui.card_html("Get your matches", "See the closest songs with a match score, stay in the same genre or explore beyond it.", 3), unsafe_allow_html=True)
+
+    st.markdown("<h3 style='margin-top:1.8rem'>What's inside</h3>", unsafe_allow_html=True)
+    f1, f2, f3 = st.columns(3)
+    f1.markdown(ui.card_html("Discover", "Song recommendations with match scores and a one-click Spotify link."), unsafe_allow_html=True)
+    f2.markdown(ui.card_html("Explore the data", "Interactive 3D genre map, genre fingerprints, and how features vary by genre."), unsafe_allow_html=True)
+    f3.markdown(ui.card_html("Under the hood", "The method, the features used, and the full numbers behind each match."), unsafe_allow_html=True)
+    st.markdown("<p class='sm-note'>Open <b>Discover</b> in the menu on the left to try it.</p>", unsafe_allow_html=True)
+
+
+def show_discover():
+    page_header("Discover", "Pick a song you like. We'll find songs that sound like it.")
+    selected = pick_track("discover")
+    if selected is None:
+        return
+    selected_song_panel(selected)
+
+    c1, c2, c3 = st.columns([2, 2, 1.4], vertical_alignment="bottom")
+    with c1:
+        min_similarity = st.slider("How close a match?", 0.0, 1.0, 0.5, 0.01,
+                                   help="Only show songs at least this similar (0 = anything, 1 = identical).")
+    with c2:
+        num_recs = st.slider("How many songs?", 1, 12, 6)
+    with c3:
+        same_genre = st.toggle("Same genre only", value=True,
+                               help="On: stay within the song's genres. Off: pure 'sounds alike', any genre.")
+
     try:
-        st.subheader("Find Similar Tracks")
-        if "track_display" not in df.columns:
-            raise ValueError("Column 'track_display' not found in the dataset.")
-
-        selected_display = pick_track("similar")
-        if selected_display is None:
-            return
-        min_similarity = st.slider("Minimum Similarity Score", min_value=0.0, max_value=1.0, value=0.5, step=0.01)
-        num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
-        same_genre = st.checkbox("Stay within the same genre", value=True)
-
-        with st.spinner("Finding similar tracks…"):
-            similar_tracks = get_recommendations(
-                df, get_feature_matrix(df), selected_display,
-                n=num_recs, min_score=min_similarity, same_genre=same_genre,
-            )
-
-        if similar_tracks.empty:
-            st.warning("No tracks found above that similarity threshold — try lowering the slider.")
-            return
-
-        similar_tracks["Listen on Spotify"] = similar_tracks.apply(get_spotify_link_html, axis=1)
-        if "genre" not in similar_tracks.columns:
-            similar_tracks["genre"] = "N/A"
-
-        display_df = similar_tracks[["track_display", "genre", "Listen on Spotify", "Similarity Score"]].copy()
-        display_df.rename(columns={
-            "track_display": "TRACK NAME - ARTIST NAME",
-            "genre": "GENRE",
-            "Listen on Spotify": "PLAY SONG 🎵",
-            "Similarity Score": "SIMILARITY SCORE",
-        }, inplace=True)
-
-        st.subheader("Recommended Tracks (Filtered by Similarity Score)")
-        st.markdown(display_df.to_html(escape=False, index=False), unsafe_allow_html=True)
-
-    except Exception as e:
-        logger.exception("show_similar_tracks failed")
-        st.error("Could not generate recommendations. Check your inputs and try again.")
-
-# ---------------------------
-# Visualization Functions
-# ---------------------------
-# Function to show audio feature distribution using violin plots
-def show_feature_density_violin(df):
-    st.header("Audio Feature Distribution by Genre")
-    st.markdown("Inspect how audio features vary across genres using density-based violin plots.")
-
-    features = ['danceability', 'energy', 'valence', 'acousticness', 'instrumentalness']
-    features = [f for f in features if f in df.columns]
-    
-    selected_feature = st.selectbox("Choose an audio feature:", features)
-    
-    top_genres = df['genre'].value_counts().nlargest(10).index.tolist()
-    filtered_df = df[df['genre'].isin(top_genres)]
-    if len(filtered_df) > 5000:
-        filtered_df = filtered_df.sample(5000, random_state=42)
-
-    fig = px.violin(filtered_df, y=selected_feature, x='genre', color='genre', box=True, points='all',
-                    color_discrete_sequence=px.colors.qualitative.Set3)
-    
-    fig.update_layout(height=600, xaxis_title="Genre", yaxis_title=selected_feature.capitalize())
-    st.plotly_chart(fig, use_container_width=True)
-
-# ---------------------------
-# Genre Constellation Visualization
-# ---------------------------
-def show_genre_constellation(df):
-    st.header("The Genre Constellation")
-    st.markdown("""
-    Explore your music collection as a 3D constellation. Songs with similar audio features cluster together in space.
-    """)
-
-    # Check for UMAP columns
-    required_cols = ['UMAP1', 'UMAP2', 'UMAP3']
-    if not all(col in df.columns for col in required_cols):
-        st.error("Error: Required UMAP dimensions ('UMAP1', 'UMAP2', 'UMAP3') are missing. Please ensure UMAP preprocessing was done.")
+        results = get_recommendations(df, get_feature_matrix(df), selected,
+                                      n=num_recs, min_score=min_similarity, same_genre=same_genre)
+    except Exception:
+        logger.exception("Recommendation failed")
+        st.error("Couldn't get recommendations for that song. Try another one.")
         return
 
-    # Confirm 'genre' exists
-    if 'genre' not in df.columns:
-        st.error("Error: Column 'genre' is required for coloring. Please check your dataset.")
+    if results.empty:
+        st.warning("No songs are that close a match. Lower “How close a match?” or turn off “Same genre only”.")
         return
+    st.markdown("<h3 style='margin-top:1.2rem'>Songs you might like</h3>", unsafe_allow_html=True)
+    render_song_grid(results)
 
-    # Sidebar genre filtering
-    top_genres = df['genre'].value_counts().nlargest(15).index.tolist()
-    selected_genres = st.sidebar.multiselect("Select genres to display (max 15):", sorted(df['genre'].unique()), default=top_genres)
 
-    if not selected_genres:
-        st.warning("Please select at least one genre to visualize.")
+def _style_fig(fig, height):
+    fig.update_layout(template="plotly_dark", height=height, paper_bgcolor="rgba(0,0,0,0)",
+                      plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter, sans-serif"),
+                      margin=dict(l=10, r=10, t=50, b=10), legend_title_text="")
+    return fig
+
+
+def show_feature_spread(data):
+    st.subheader("Feature spread by genre")
+    st.caption("How one audio feature varies across the 10 biggest genres (sample of 5,000 songs).")
+    features = [f for f in ["danceability", "energy", "valence", "acousticness", "instrumentalness"] if f in data.columns]
+    feature = st.selectbox("Audio feature", features, format_func=str.capitalize)
+    top = data["genre"].value_counts().nlargest(10).index
+    sample = data[data["genre"].isin(top)]
+    if len(sample) > 5000:
+        sample = sample.sample(5000, random_state=42)
+    fig = px.violin(sample, y=feature, x="genre", color="genre", box=True, points="all",
+                    color_discrete_sequence=px.colors.qualitative.Pastel)
+    fig.update_layout(xaxis_title="", yaxis_title=feature.capitalize(), showlegend=False)
+    st.plotly_chart(_style_fig(fig, 560), width="stretch")
+
+
+def show_genre_map(data):
+    st.subheader("3D genre map")
+    st.caption("Songs with similar sound sit close together. Drag to rotate, scroll to zoom.")
+    if not all(c in data.columns for c in ["UMAP1", "UMAP2", "UMAP3"]):
+        st.info("The 3D map isn't available for this dataset.")
         return
-
-    # Filter dataset; sample to keep the 3D scatter responsive
-    filtered_df = df[df['genre'].isin(selected_genres)]
-    if len(filtered_df) > 10000:
-        filtered_df = filtered_df.sample(10000, random_state=42)
-
-    fig = px.scatter_3d(
-        filtered_df,
-        x='UMAP1', y='UMAP2', z='UMAP3',
-        color='genre',
-        hover_name='track_display',
-        hover_data={'genre': True, 'popularity': True, 'danceability': ':.2f'},
-        color_discrete_sequence=px.colors.qualitative.Vivid
-    )
-
-    fig.update_layout(
-        title='3D Genre-Based Music Constellation',
-        margin=dict(l=0, r=0, b=0, t=40),
-        height=700
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-# ---------------------------
-# Genre Signature Visualization
-# ---------------------------
-
-def show_genre_signature(df):
-    st.header("The Genre Signature")
-    st.markdown("""
-    Deconstruct and compare the audio 'signature' of different genres. 
-    """)
-
-    #  Sidebar for genre selection
-    all_genres = sorted(df['genre'].unique())
-    selected_genres = st.sidebar.multiselect("Select genres:", all_genres, default=all_genres[:4])
-
-    # Feature selection dropdown
-    all_features = ['danceability', 'energy', 'valence', 'acousticness', 'instrumentalness', 'speechiness']
-    available_features = [f for f in all_features if f in df.columns]
-    selected_features = st.sidebar.multiselect("Select features:", available_features, default=available_features[:4])
-
-    #  Dynamic color scaling selection
-    color_options = available_features
-    selected_color = st.sidebar.selectbox("Select color scale:", color_options, index=color_options.index("valence") if "valence" in color_options else 0)
-
-    if not selected_genres or not selected_features:
-        st.warning("Please select at least one genre and one feature.")
+    mapped = data[data["Cluster"].round(6) != round(float(data["Cluster"].mean()), 6)] if "Cluster" in data.columns else data
+    st.caption(f"Built from the {mapped['track_display'].nunique():,} songs analyzed with UMAP in the original study.")
+    top = mapped["genre"].value_counts().nlargest(15).index.tolist()
+    chosen = st.multiselect("Genres to show", sorted(mapped["genre"].unique()), default=top)
+    if not chosen:
+        st.info("Pick at least one genre.")
         return
-
-    # Filter dataset based on selected genres
-    df_filtered = df[df['genre'].isin(selected_genres)]
-    if len(df_filtered) > 2000:
-        df_filtered = df_filtered.sample(2000, random_state=42)
-
-    #  Automatically select top songs based on color scale feature
-    top_songs = df_filtered.sort_values(by=selected_color, ascending=False).head(5)
-
-    #  Create interactive parallel coordinates plot
-    fig = px.parallel_coordinates(
-        df_filtered, dimensions=selected_features, color=selected_color,
-        color_continuous_scale=px.colors.sequential.Viridis,
-        labels={feature: feature.capitalize() for feature in selected_features},
-        title="Audio Feature Comparison Across Selected Genres"
-    )
-
-    # Display plot
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Display selected songs dynamically
-    st.subheader("Top Songs Based on Selected Criteria")
-    for _, row in top_songs.iterrows():
-        st.markdown(f"🎵 **{row['track_display']}** - {row['artist_name_x']} ({row['genre']})")
-        st.markdown(f"🔹 **{selected_color.capitalize()}:** {row[selected_color]:.2f}")
-        st.markdown(f"[Listen on Spotify](https://open.spotify.com/track/{row['track_id']}) 🎧")
-        st.write("---")
+    sample = mapped[mapped["genre"].isin(chosen)]
+    if len(sample) > 10000:
+        sample = sample.sample(10000, random_state=42)
+    fig = px.scatter_3d(sample, x="UMAP1", y="UMAP2", z="UMAP3", color="genre", hover_name="track_display",
+                        hover_data={"genre": True, "UMAP1": False, "UMAP2": False, "UMAP3": False},
+                        color_discrete_sequence=px.colors.qualitative.Vivid)
+    fig.update_traces(marker=dict(size=3, opacity=0.85))
+    st.plotly_chart(_style_fig(fig, 680), width="stretch")
 
 
-
-# ---------------------------
-# Visualization Trends Tab
-# ---------------------------
-
-def show_visualization_trends():
-    st.title("Advanced Music Visualizations")
-    st.markdown("""
-    Use these interactive plots to explore your music collection in rich detail—grouped by genre, mood, and audio profiles. If you want feature, refer to Tab ' For Back-end Geeks'.
-    """)
-
-    plot_types = {
-        "3D UMAP Constellation ": show_genre_constellation,
-        "Genre Audio Signature ": show_genre_signature,
-        "Audio Feature Distribution Map ": show_feature_density_violin
-    }
-
-    selected_plot = st.sidebar.radio("Choose Visualization:", list(plot_types.keys()))
-
-    # Call selected function
-    plot_func = plot_types[selected_plot]
-    plot_func(df)
+def show_genre_fingerprints(data):
+    st.subheader("Genre fingerprints")
+    st.caption("Each line is a song. Compare how genres differ across several audio features at once.")
+    genres = sorted(data["genre"].unique())
+    features_all = [f for f in ["danceability", "energy", "valence", "acousticness", "instrumentalness", "speechiness"] if f in data.columns]
+    c1, c2 = st.columns(2)
+    chosen = c1.multiselect("Genres", genres, default=genres[:4])
+    features = c2.multiselect("Features", features_all, default=features_all[:4], format_func=str.capitalize)
+    if not chosen or not features:
+        st.info("Pick at least one genre and one feature.")
+        return
+    color_by = st.selectbox("Color lines by", features_all, index=features_all.index("valence") if "valence" in features_all else 0,
+                            format_func=str.capitalize)
+    sample = data[data["genre"].isin(chosen)]
+    if len(sample) > 2000:
+        sample = sample.sample(2000, random_state=42)
+    fig = px.parallel_coordinates(sample, dimensions=features, color=color_by,
+                                  color_continuous_scale=px.colors.sequential.Plasma,
+                                  labels={f: f.capitalize() for f in features})
+    st.plotly_chart(_style_fig(fig, 520), width="stretch")
 
 
+def show_explore():
+    page_header("Explore the data", "Interactive views of what makes each genre sound the way it does.")
+    views = {"3D genre map": show_genre_map, "Genre fingerprints": show_genre_fingerprints,
+             "Feature spread by genre": show_feature_spread}
+    choice = st.radio("View", list(views), horizontal=True, label_visibility="collapsed")
+    views[choice](df)
 
-# ---------------------------
-# Slideshow Function
-# ---------------------------
-def show_slideshow():
-    # Custom CSS for full-screen images
-    st.markdown("""
-    <style>
-        [data-testid="stImage"] {
-            display: flex !important;
-            justify-content: center !important;
-            align-items: center !important;
-            height: 100vh !important; /* Full viewport height */
-            width: 100vw !important; /* Full viewport width */
-        }
-        
-        [data-testid="stImage"] img {
-            max-width: 100vw !important; /* Ensure it fills width */
-            max-height: 100vh !important; /* Ensure it fills height */
-            object-fit: contain !important; /* Maintain aspect ratio */
-        }
-    </style>
-""", unsafe_allow_html=True)
 
-    # Load images
-    slides_dir = os.path.join(SCRIPT_DIR, "Slides")
-
+def show_story():
+    page_header("Project story", "The slides from the original analysis: data, method, and findings.")
     try:
         slides = sorted(
-            [f for f in os.listdir(slides_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))],
-            key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else 0
+            [f for f in os.listdir(SLIDES_DIR) if f.lower().endswith((".png", ".jpg", ".jpeg"))],
+            key=lambda x: int(re.search(r"\d+", x).group()) if re.search(r"\d+", x) else 0,
         )
     except Exception:
-        st.error("Image loading failed. Check:")
-        st.write("1. Folder exists at:", slides_dir)
-        st.write("2. Images are named like: 1.jpg, 2.jpg, etc.")
+        logger.exception("Slides folder missing")
+        st.info("The slides aren't available right now.")
         return
-
-    # Initialize session state
-    if 'slide_index' not in st.session_state:
-        st.session_state.slide_index = 0
-
-    # Navigation buttons
-    col1, col2, col3 = st.columns([1, 6, 1])
-    with col1:
-        st.button("◄", on_click=lambda: st.session_state.update(slide_index=max(0, st.session_state.slide_index-1)), 
-                  disabled=(st.session_state.slide_index == 0))
-    
-    with col3:
-        st.button("►", on_click=lambda: st.session_state.update(slide_index=min(len(slides)-1, st.session_state.slide_index+1)),
-                  disabled=(st.session_state.slide_index == len(slides)-1))
-
-    # Display image (modern Streamlit approach)
-    with col2:
-        if slides:
-            current_slide = os.path.join(slides_dir, slides[st.session_state.slide_index])
-            st.image(current_slide, width=1200, output_format="PNG")
+    if not slides:
+        st.info("The slides aren't available right now.")
+        return
+    st.session_state.setdefault("slide_index", 0)
+    i = min(st.session_state.slide_index, len(slides) - 1)
+    prev_col, mid, next_col = st.columns([1, 4, 1], vertical_alignment="center")
+    if prev_col.button("← Previous", disabled=(i == 0), width="stretch"):
+        st.session_state.slide_index = i - 1
+        st.rerun()
+    mid.markdown(f"<p style='text-align:center; color:#a9b1c6; margin:0'>Slide {i + 1} of {len(slides)}</p>",
+                 unsafe_allow_html=True)
+    if next_col.button("Next →", disabled=(i == len(slides) - 1), width="stretch"):
+        st.session_state.slide_index = i + 1
+        st.rerun()
+    st.image(os.path.join(SLIDES_DIR, slides[i]), width="stretch")
 
 
-
-
-# ---------------------------
-# Backend Geeks Tab
-# ---------------------------
-
-def show_backend_geeks_tab():
-    """Displays detailed track info and similar tracks via cosine similarity."""
+def show_under_the_hood():
+    page_header("Under the hood", "How the matches are made, with the full numbers.")
+    m1, m2, m3 = st.columns(3)
+    m1.markdown(ui.card_html("12 audio features", "Acousticness, danceability, duration, energy, instrumentalness, liveness, "
+                             "loudness, mode, speechiness, tempo, time signature, valence — each standardized."), unsafe_allow_html=True)
+    m2.markdown(ui.card_html("Cosine similarity", "Every song becomes a 12-number vector. The match score is the cosine of "
+                             "the angle between two songs' vectors."), unsafe_allow_html=True)
+    m3.markdown(ui.card_html("Clean results", "ID-like columns are excluded, duplicate listings of the same song are removed, "
+                             "and the genre filter is optional."), unsafe_allow_html=True)
+    st.markdown("<h3 style='margin-top:1.4rem'>Try it with the numbers</h3>", unsafe_allow_html=True)
+    selected = pick_track("geeks")
+    if selected is None:
+        return
+    c1, c2 = st.columns([2, 1], vertical_alignment="bottom")
+    num_recs = c1.slider("How many songs?", 1, 12, 6, key="geeks_n")
+    same_genre = c2.toggle("Same genre only", value=True, key="geeks_genre")
     try:
-        st.header("For Back-end Geeks")
-        st.markdown("Detailed track information including danceability, valence, track ID, genre, artist name, and other features.")
-
-        if df.empty:
-            st.warning("No track data available.")
-            return
-
-        columns_to_display = ["track_display", "track_id", "artist_name_x", "genre",
-                               "danceability", "energy", "valence", "acousticness"]
-        if not all(col in df.columns for col in columns_to_display):
-            raise ValueError("Some required columns are missing in the dataset.")
-
-        selected_display = pick_track("geeks")
-        if selected_display is None:
-            return
-        num_recs = st.slider("Number of recommendations", min_value=1, max_value=10, value=5)
-        same_genre = st.checkbox("Stay within the same genre", value=True)
-
-        with st.spinner("Finding similar tracks…"):
-            similar_tracks = get_recommendations(
-                df, get_feature_matrix(df), selected_display, n=num_recs,
-                same_genre=same_genre,
-            )
-
-        if similar_tracks.empty:
-            st.warning("No similar tracks found for this selection.")
-            return
-
-        similar_tracks["Listen on Spotify"] = similar_tracks.apply(get_spotify_link_html, axis=1)
-        if "genre" not in similar_tracks.columns:
-            similar_tracks["genre"] = "N/A"
-
-        display_df = similar_tracks[columns_to_display + ["Listen on Spotify", "Similarity Score"]].copy()
-        display_df.rename(columns={
-            "track_display": "TRACK NAME - ARTIST NAME",
-            "track_id": "TRACK ID",
-            "artist_name_x": "ARTIST NAME",
-            "genre": "GENRE",
-            "danceability": "DANCEABILITY",
-            "energy": "ENERGY",
-            "valence": "VALENCE",
-            "acousticness": "ACOUSTICNESS",
-            "Listen on Spotify": "PLAY SONG 🎵",
-            "Similarity Score": "SIMILARITY SCORE",
-        }, inplace=True)
-
-        st.subheader("Recommended Tracks (Filtered by Similarity Score)")
-        st.dataframe(display_df, use_container_width=True)
-
-    except Exception as e:
-        logger.exception("show_backend_geeks_tab failed")
-        st.error("Could not generate recommendations. Check your inputs and try again.")
-
-
-
+        results = get_recommendations(df, get_feature_matrix(df), selected, n=num_recs, same_genre=same_genre)
+    except Exception:
+        logger.exception("Recommendation failed")
+        st.error("Couldn't get recommendations for that song. Try another one.")
+        return
+    if results.empty:
+        st.warning("No similar songs found for this selection.")
+        return
+    table = pd.DataFrame({
+        "Song": [pretty(t) for t in results["track_display"]],
+        "Genre": results["genre"],
+        "Match": [ui.match_percent(s) for s in results["Similarity Score"]],
+        "Similarity": results["Similarity Score"].round(4),
+        "Danceability": results["danceability"].round(2),
+        "Energy": results["energy"].round(2),
+        "Valence": results["valence"].round(2),
+        "Acousticness": results["acousticness"].round(2),
+        "Listen": [ui.spotify_track_url(t) for t in results["track_id"]],
+    })
+    st.dataframe(
+        table, hide_index=True, width="stretch",
+        column_config={
+            "Match": st.column_config.ProgressColumn("Match", format="%d%%", min_value=0, max_value=100),
+            "Listen": st.column_config.LinkColumn("Listen", display_text="Open ↗"),
+        },
+    )
+    st.caption("Feature values are standardized (0 = average across all songs).")
 
 
 # ---------------------------
-# Main function to handle navigation and display content
+# Navigation
 # ---------------------------
-
 def main():
-    """Main function to handle navigation."""
-    st.sidebar.title("Navigation")
-    tabs = ["Home", "Slideshow", "Similar Tracks", "Visualizations", "For Back-end Geeks"]  # Added new tab
-    
-    if 'tab' not in st.session_state:
-        st.session_state.tab = tabs[0]
-    
-    st.session_state.tab = st.sidebar.radio("Go to:", tabs)
-    
-    if st.session_state.tab == "Home":
-        show_home()
-    elif st.session_state.tab == "Slideshow":
-        show_slideshow()
-    elif st.session_state.tab == "Similar Tracks":
-        show_similar_tracks()
-    elif st.session_state.tab == "Visualizations":
-        show_visualization_trends()
-    elif st.session_state.tab == "For Back-end Geeks":  # New tab
-        show_backend_geeks_tab()
+    with st.sidebar:
+        st.markdown(f"<p class='sm-brand'>🎧 <span>{ui.APP_NAME}</span></p>"
+                    "<p class='sm-tagline'>Music that sounds alike</p>", unsafe_allow_html=True)
+        page = st.radio("Go to", PAGES, format_func=lambda p: f"{PAGE_ICONS[p]}  {p}", label_visibility="collapsed")
+        st.markdown(ui.footer_html(), unsafe_allow_html=True)
+
+    {"Overview": show_overview, "Discover": show_discover, "Explore the data": show_explore,
+     "Project story": show_story, "Under the hood": show_under_the_hood}[page]()
+
 
 if __name__ == "__main__":
     main()
-    
-    
