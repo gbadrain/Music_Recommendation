@@ -32,6 +32,24 @@
 
 ![Under the hood page](docs/screenshots/under-the-hood.png)
 
+## Explore the data — interactive charts
+
+**3D genre map.** Songs analyzed with UMAP, plotted in 3D. Songs that sound alike sit close together; drag to rotate.
+
+![3D genre map](docs/screenshots/explore-3d-genre-map.png)
+
+**Genre fingerprints.** Parallel coordinates: each line is a song, so you can compare genres across several audio features at once.
+
+![Genre fingerprints](docs/screenshots/explore-genre-fingerprints.png)
+
+**Feature spread by genre.** Violin plots showing how one feature (here, danceability) varies across the 10 biggest genres.
+
+![Feature spread by genre](docs/screenshots/explore-feature-spread.png)
+
+**Project story.** The slides from the original analysis, with simple previous/next navigation.
+
+![Project story](docs/screenshots/project-story.png)
+
 ## 2026 upgrade — what changed and why
 
 This started as a 2025 data-analytics bootcamp project. In November 2026 it was rebuilt to be faster, more correct and easier to use:

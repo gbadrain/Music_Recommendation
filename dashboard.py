@@ -261,7 +261,9 @@ def show_genre_fingerprints(data):
     fig = px.parallel_coordinates(sample, dimensions=features, color=color_by,
                                   color_continuous_scale=px.colors.sequential.Plasma,
                                   labels={f: f.capitalize() for f in features})
-    st.plotly_chart(_style_fig(fig, 520), width="stretch")
+    fig = _style_fig(fig, 520)
+    fig.update_layout(margin=dict(l=80, r=40, t=60, b=20))
+    st.plotly_chart(fig, width="stretch")
 
 
 def show_explore():
