@@ -147,7 +147,7 @@ dashboard.py        Streamlit app: pages and layout
 ui.py               Theme, cards and other HTML building blocks
 data_utils.py       Data loading, cleaning, search and the recommendation engine
 model_script.py     Original 2025 modeling script
-spotify_model.ipynb Original 2025 analysis notebook
+spotify_model.ipynb Original 2025 analysis notebook (see note on its Random Forest result below)
 tests/              Automated tests (pytest)
 Resource/           SpotifyFeatures.csv (main dataset)
 Output/             Results from the original analysis (UMAP, clusters, PCA)
@@ -163,6 +163,8 @@ Python · Streamlit · pandas · NumPy · scikit-learn · UMAP · Plotly · pyte
 ## Original analysis (2025) — the methods in plain language
 
 The original notebook ([`spotify_model.ipynb`](spotify_model.ipynb)) and [backend analysis](backend_analysis.md) explored the data with four techniques. Here's what each one does, without the math.
+
+> **Note on the notebook:** it is kept exactly as it was in 2025. Its Random Forest reports 90% accuracy, but that figure is inflated by data leakage. The corrected result is **36%** — see [Checking the 2025 results](#checking-the-2025-results-november-2026-review) below.
 
 **Cosine similarity — "how alike are two songs?"**
 Imagine describing every song with a list of numbers: how danceable, how energetic, how happy it sounds, and so on. Each list is like an arrow pointing in some direction. Two songs whose arrows point in nearly the same direction sound alike, even if one is louder overall. Cosine similarity measures the angle between the arrows: 1.0 means the same direction (very alike), 0 means unrelated, and negative means opposite. **This is the method the live app uses** for its recommendations.
