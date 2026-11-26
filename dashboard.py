@@ -366,8 +366,9 @@ def show_under_the_hood():
     st.dataframe(
         table, hide_index=True, width="stretch",
         column_config={
-            "Match": st.column_config.ProgressColumn("Match", format="%d%%", min_value=0, max_value=100),
-            "Listen": st.column_config.LinkColumn("Listen", display_text="Open ↗"),
+            "Match": st.column_config.ProgressColumn("Match", format="%d%%", min_value=0, max_value=100, width="small"),
+            "Listen": st.column_config.LinkColumn("Listen", display_text="Open ↗", width="small"),
+            "Song": st.column_config.TextColumn("Song", width="large"),
         },
     )
     st.caption("Feature values are standardized (0 = average across all songs).")

@@ -10,6 +10,25 @@
 
 ![SoundMatch overview page](docs/screenshots/overview.png)
 
+## Highlights
+
+- **Listen while you browse.** Every recommended song has its own small Spotify player, so you can hear matches without leaving the page.
+- **Explains itself.** A radar chart shows *why* songs match (their sound profiles line up), and a histogram shows how rare a close match really is.
+- **Fast.** Search a song and get matches in under a second, with no external API calls.
+- **Correct and tested.** Two real bugs found and fixed during the 2026 upgrade, with 33 automated tests guarding the logic.
+- **Honest about the data.** The app shows each song's dataset genre labels and notes their limits instead of hiding them.
+
+### Skills demonstrated
+
+| Area | What this project shows |
+|---|---|
+| Data cleaning | Handling missing values, duplicate listings, and inconsistent text across 232,000 rows |
+| Feature engineering | Choosing which features belong in a similarity model (and removing ID-like columns that distort it) |
+| Recommender systems | Cosine similarity on standardized features, top-N retrieval with a fast partial sort, genre filtering |
+| Debugging | Tracing a production crash to a library upgrade, and a silent scoring bug to an index mismatch |
+| Data visualization | 3D UMAP map, parallel coordinates, violin plots, radar and histogram charts with Plotly |
+| Software practice | Automated tests (pytest), pinned dependencies, version control, deployment on Streamlit Community Cloud |
+
 ---
 
 ## What you can do
@@ -17,12 +36,14 @@
 | Page | What it does |
 |---|---|
 | **Overview** | What the app does, key numbers, and how it works in three steps |
-| **Discover** | Search a song, get matches as cards with a match %, genre labels and a link to listen on Spotify. Choose how close a match you want, how many songs, and whether to stay in the same genre |
+| **Discover** | Search a song, play it, and get matches as cards with a match %, genre labels and a built-in Spotify player on every song. Choose how close a match you want, how many songs, and whether to stay in the same genre |
 | **Explore the data** | Interactive 3D genre map (UMAP), genre "fingerprints" (parallel coordinates), and how features spread across genres (violin plots) |
 | **Project story** | The slides from the original analysis |
 | **Under the hood** | The method in plain words, the full numbers behind every match, a radar chart of why songs match, and how rare a close match is |
 
 ![Discover page](docs/screenshots/discover.png)
+
+*Example: Don Williams' "Amanda" returns Willie Nelson, Patsy Cline, Hank Williams Jr., Conway Twitty and George Strait — all classic country, found from sound alone. (The Spotify players appear under each card in the live app.)*
 
 ## How the recommendations work
 
@@ -63,6 +84,7 @@ This started as a 2025 data-analytics bootcamp project. In November 2026 it was 
 - **Cleaner feature set**: removed label-encoded IDs, UMAP and cluster columns from the similarity math, which had been mixing "made-up" numbers into "sounds alike".
 - **Much faster**: removed a built-in 2-second pause per Spotify lookup, replaced the 175,000-item dropdown with a search box, and now builds Spotify links directly from track IDs (no API calls). Search to results took about 0.6 seconds in testing.
 - **New design**: dark theme, card layout, match % bars, renamed pages and plain-language wording.
+- **Built-in listening and explanations**: a Spotify player on every recommendation, plus radar and histogram charts that explain each result.
 - **Tests and pinned versions**: 33 automated tests (`pytest`) and exact package versions, so a surprise library update can't break the app again.
 
 ## Data
