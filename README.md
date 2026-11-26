@@ -26,6 +26,7 @@
 | Feature engineering | Choosing which features belong in a similarity model (and removing ID-like columns that distort it) |
 | Recommender systems | Cosine similarity on standardized features, top-N retrieval with a fast partial sort, genre filtering |
 | Debugging | Tracing a production crash to a library upgrade, and a silent scoring bug to an index mismatch |
+| Model validation | Spotting data leakage in an earlier model (90% accuracy that was really 36%) and re-running it correctly |
 | Data visualization | 3D UMAP map, parallel coordinates, violin plots, radar and histogram charts with Plotly |
 | Software practice | Automated tests (pytest), pinned dependencies, version control, deployment on Streamlit Community Cloud |
 
