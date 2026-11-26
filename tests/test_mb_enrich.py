@@ -70,7 +70,7 @@ def test_matched_genres_sorted_by_vote():
     fake_search = {"artist-list": [{"id": "mbid-123", "name": "John Mayall", "ext:score": "100"}]}
     fake_detail = {
         "artist": {
-            "genre-list": [
+            "tag-list": [
                 {"name": "blues rock", "count": "15"},
                 {"name": "chicago blues", "count": "42"},
                 {"name": "electric blues", "count": "8"},
@@ -95,7 +95,7 @@ def test_matched_no_genres_returns_no_genres():
     """Artist found in MB but with no genres tagged → status 'no_genres'."""
     mod = _load_script()
     fake_search = {"artist-list": [{"id": "mbid-456", "name": "James Taylor", "ext:score": "98"}]}
-    fake_detail = {"artist": {"genre-list": []}}
+    fake_detail = {"artist": {"tag-list": []}}
     with patch("musicbrainzngs.search_artists", return_value=fake_search), \
          patch("musicbrainzngs.get_artist_by_id", return_value=fake_detail), \
          patch("time.sleep"):

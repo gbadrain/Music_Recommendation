@@ -114,10 +114,10 @@ def lookup_artist(artist_name: str) -> dict:
 
         mbid = top["id"]
 
-        detail = musicbrainzngs.get_artist_by_id(mbid, includes=["genres"])
+        detail = musicbrainzngs.get_artist_by_id(mbid, includes=["tags"])
         time.sleep(SLEEP_SEC)
 
-        genres_data = detail.get("artist", {}).get("genre-list", [])
+        genres_data = detail.get("artist", {}).get("tag-list", [])
         if not genres_data:
             return {"mbid": mbid, "match_score": score, "mb_genres": "", "status": "no_genres"}
 
